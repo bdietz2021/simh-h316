@@ -79,7 +79,7 @@ const char *sim_path =
 #if defined(_WIN32)
             "vax.exe";
 #else
-            "vax";
+            "./vax"; /* changed from "vax" 7/9/2024 BJD */
 #endif
 
 const char *sim_config = 
