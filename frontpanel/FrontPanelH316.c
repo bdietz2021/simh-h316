@@ -25,6 +25,7 @@ Based on FrontPanelTest.c
 03/16/2025 - start merge of test program for 2nd connection
 
 06/12/2025 - resume after working on front panel firmware
+06/16/2025 - start adding JSON features
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -211,6 +212,7 @@ static void DisplayCallback(PANEL *panel, unsigned long long sim_time,
 
 static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
   char buf1[100], buf2[100], buf3[100], buf4[100];
+  char bufx[100];	// JSON message
   static const char *states[] = {"Halt", "Run "};
 
   buf1[sizeof(buf1) - 1] = buf2[sizeof(buf2) - 1] = buf3[sizeof(buf3) - 1] =
@@ -259,7 +261,10 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
     printf("%s", buf2);
     printf("%s", buf3);
 /*	send message to H316 front panel via async port */
-	write_to_async(fd, 3,"a \n");
+	
+  /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
+	sprintf(bufx,"<{\"A\":%d,\"B\":%d,\"X\":%d}>",A,B,X);
+	write_to_async(fd, strlen(bufx),bufx);
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
       wmove(stdscr, row, col); /* Restore Cursor Position */
@@ -753,7 +758,7 @@ struct execution_breakpoint {
 
 int main(int argc, char **argv) {
 
-	// usb_init();
+	 // usb_init();
 
     // pthread_t thread_id;
     // printf("Before Thread\n");
