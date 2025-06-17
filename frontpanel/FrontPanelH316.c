@@ -26,6 +26,7 @@ Based on FrontPanelTest.c
 
 06/12/2025 - resume after working on front panel firmware
 06/16/2025 - start adding JSON features
+06/17/2025 = JSON works for A register. github complains about secrets.
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -263,7 +264,7 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
 /*	send message to H316 front panel via async port */
 	
   /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
-	sprintf(bufx,"<{\"A\":%d,\"B\":%d,\"X\":%d}>",A,B,X);
+	sprintf(bufx,"<{\"A\":%d,\"B\":%d,\"X\":%d,\"P\":%d}>",A,B,X,P);
 	write_to_async(fd, strlen(bufx),bufx);
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
