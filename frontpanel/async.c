@@ -26,7 +26,6 @@ char buff[120];
 int nchars;
 
 /* read data */
-	printf("Background thread running\n");
 	while(1) {
 		nchars = read(fd,buff,1);
 		if (nchars < 0) break;
@@ -58,18 +57,22 @@ int async_start()
 // int nchars;
 pthread_t thread1;
 
-   // Replace /dev/ttyACM0 with the name of your Serial Port
+char portname[] = "/dev/ttyACM0";
+char errormsg[120];
+
+   // Replace /dev/ttyACM1 with the name of your Serial Port
    
-   fd = open("/dev/ttyACM0", O_RDWR | O_NOCTTY); //open a connection to serialport
+   fd = open(portname, O_RDWR | O_NOCTTY); //open a connection to serialport
    
    if (fd == -1) 
    {
-       perror("Failed to open serial port"); /*  to print system error messages */
+	sprintf(errormsg,"Failed to open serial port %s",portname);
+       perror(errormsg); /*  to print system error messages */
        return 1;
    }
    else
    {
-      printf("Connection to Port Opened fd = %d \n",fd);
+      printf("Connection to Port %s  Opened fd = %d \n",portname,fd);
    }
 /* update terminal settings */
 tcgetattr(fd,&serial_port_settings);

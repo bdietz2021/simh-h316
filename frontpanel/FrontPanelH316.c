@@ -27,6 +27,8 @@ Based on FrontPanelTest.c
 06/12/2025 - resume after working on front panel firmware
 06/16/2025 - start adding JSON features
 06/17/2025 = JSON works for A register. github complains about secrets.
+06/12/2025 - resume after working on front panel firmware
+06/25/2025 - add JSON message with register values
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -213,7 +215,7 @@ static void DisplayCallback(PANEL *panel, unsigned long long sim_time,
 
 static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
   char buf1[100], buf2[100], buf3[100], buf4[100];
-  char bufx[100];	// JSON message
+  char jsonbuf[256];	// json
   static const char *states[] = {"Halt", "Run "};
 
   buf1[sizeof(buf1) - 1] = buf2[sizeof(buf2) - 1] = buf3[sizeof(buf3) - 1] =
@@ -264,8 +266,9 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
 /*	send message to H316 front panel via async port */
 	
   /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
-	sprintf(bufx,"<{\"A\":%d,\"B\":%d,\"X\":%d,\"P\":%d}>",A,B,X,P);
-	write_to_async(fd, strlen(bufx),bufx);
+/* compose JSON-formatted register contents message */
+	sprintf(jsonbuf,"<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>",A,B,X,P );
+	write_to_async(fd, strlen(jsonbuf),jsonbuf);
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
       wmove(stdscr, row, col); /* Restore Cursor Position */
@@ -387,7 +390,8 @@ int panel_setup() {
     int j;
     int *addrofi;
 
-    static int inst[5] = {0101000, 0101000, 0101000, 0, 03100};
+    /* static int inst[5] = {0101000, 0101000, 0101000, 0, 03100}; */
+    static int inst[5] = {0101000, 0141206, 0101000, 0, 03100};
 
     for (j = 0; j < 6; j++) {
       addrofi = &inst[j];
