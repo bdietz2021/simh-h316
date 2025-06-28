@@ -29,6 +29,7 @@ Based on FrontPanelTest.c
 06/17/2025 = JSON works for A register. github complains about secrets.
 06/12/2025 - resume after working on front panel firmware
 06/25/2025 - add JSON message with register values
+06/27/2025 - try clean up editing on mac with vsedit
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -68,7 +69,7 @@ Based on FrontPanelTest.c
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>	// thread library
+#include <pthread.h> // thread library
 #include <string.h>
 
 #if defined(_WIN32)
@@ -83,17 +84,18 @@ Based on FrontPanelTest.c
 #define fgets(buf, n, f) (OK == getnstr(buf, n))
 #define printf my_printf
 
-
 /**************************************************/
-/* static */ 
-void my_printf(const char *fmt, ...) {
+/* static */
+void my_printf(const char *fmt, ...)
+{
   va_list arglist;
   int len;
   static char *buf = NULL;
   static int buf_size = 0;
   char *c;
 
-  while (1) {
+  while (1)
+  {
     va_start(arglist, fmt);
     len = vsnprintf(buf, buf_size, fmt, arglist);
     va_end(arglist);
@@ -112,76 +114,7 @@ void my_printf(const char *fmt, ...) {
 #endif /* BJD_HAVE_NCURSES */
 #endif
 
-struct usbio {	// formerly class
-	// public:
-		//	int usb_init();
-		//	int usb_exit();
-		//	int usbin();
-		//	int usbout(int);
-	// private:
-		FILE* usb1;	// input stream
-		FILE* usb2;	// output stream
-
-};
-
-
-struct usbio usbx;	// declare one usbio object
-FILE* usb1;
-FILE* usb2;
-
-int usb_init() {
-
-	if ((usbx.usb1 = fopen("/dev/ttyACM0","r+")) == NULL) {
-	return(-1);
-	}
-	if ((usbx.usb2 = fopen("/dev/ttyACM0","r+")) == NULL) {
-	return(-1);
-	}
-	return(0);
-};
-
-int usb_exit() {
-	return(0);
-
-};
-
-int usbin() {
-	int c;
-	c = fgetc(usbx.usb1);
-	return(c);
-};
-
-int usbout(int c) {
-	// fputc(c,file);
-	return( fputc(c,usbx.usb2) );
-
-};
-
-
-
-// A normal C function that is executed as a thread
-// when its name is specified in pthread_create()
-void* myThreadFun(void* vargp)
-{
-char line[120];
-int c;
-FILE* file;
-
-    sleep(1);
-    printf("Background thread \n");
-
-while(1) { /* copy from /dev/ttyACM0 to stdout */
-
-// c = fgetc(file);
-c = usbin();
-putchar(c);
-}
-
-    return NULL;
-};
-
-
-#include "async.c"	// BJD async library
+#include "async.c" // BJD async library
 
 const char *sim_path =
 #if defined(_WIN32)
@@ -208,14 +141,16 @@ int update_display = 1;
 int debug = 0;
 
 static void DisplayCallback(PANEL *panel, unsigned long long sim_time,
-                            void *context) {
+                            void *context)
+{
   simulation_time = sim_time;
   update_display = 1;
 }
 
-static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
+static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
+{
   char buf1[100], buf2[100], buf3[100], buf4[100];
-  char jsonbuf[256];	// json
+  char jsonbuf[256]; // json
   static const char *states[] = {"Halt", "Run "};
 
   buf1[sizeof(buf1) - 1] = buf2[sizeof(buf2) - 1] = buf3[sizeof(buf3) - 1] =
@@ -225,7 +160,8 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
   sprintf(buf2, "SC: %08o  Instructions Executed: %lld\n", SC, simulation_time);
   sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X);
 #if defined(_WIN32)
-  if (1) {
+  if (1)
+  {
     static HANDLE out = NULL;
     static CONSOLE_SCREEN_BUFFER_INFO info;
     static COORD origin = {0, 0};
@@ -243,7 +179,8 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
       SetConsoleCursorPosition(out, info.dwCursorPosition);
   }
 #else
-  if (1) {
+  if (1)
+  {
 #if defined(BJD_HAVE_NCURSES)
     static int row, col;
 
@@ -253,22 +190,22 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
 #else
 #define ESC "\033"
 #define CSI ESC "["
-/* this is the real code, after all conditional compilation */
+    /* this is the real code, after all conditional compilation */
     get_pos = 0; /* bjd */
     if (get_pos)
       printf(CSI "s"); /* Save Cursor Position */
-      /*	printf (CSI "H");   /* Position to Top of Screen (1,1) */
+                       /*	printf (CSI "H");   /* Position to Top of Screen (1,1) */
 
 #endif /* BJD_HAVE_NCURSES */
     printf("%s", buf1);
     printf("%s", buf2);
     printf("%s", buf3);
-/*	send message to H316 front panel via async port */
-	
-  /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
-/* compose JSON-formatted register contents message */
-	sprintf(jsonbuf,"<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>",A,B,X,P );
-	write_to_async(fd, strlen(jsonbuf),jsonbuf);
+    /*	send message to H316 front panel via async port */
+
+    /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
+    /* compose JSON-formatted register contents message */
+    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+    write_to_async(fd, strlen(jsonbuf), jsonbuf);
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
       wmove(stdscr, row, col); /* Restore Cursor Position */
@@ -282,13 +219,15 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos) {
 #endif
 }
 
-static void CleanupDisplay(void) {
+static void CleanupDisplay(void)
+{
 #if (!defined(_WIN32)) && defined(BJD_HAVE_NCURSES)
   endwin();
 #endif
 }
 
-static void InitDisplay(void) {
+static void InitDisplay(void)
+{
 #if defined(_WIN32)
   system("cls");
 #else
@@ -317,7 +256,8 @@ static void InitDisplay(void) {
 volatile int halt_cpu = 0;
 PANEL *panel, *tape;
 
-void halt_handler(int sig) {
+void halt_handler(int sig)
+{
   signal(SIGINT, halt_handler); /* Re-establish handler for some platforms that
                                    implement ONESHOT signal dispatch */
   halt_cpu = 1;
@@ -325,12 +265,15 @@ void halt_handler(int sig) {
   return;
 }
 
-int panel_setup() {
+int panel_setup()
+{
   FILE *f;
 
   /* Create pseudo config file for a test */
-  if ((f = fopen(sim_config, "w"))) {
-    if (0) {
+  if ((f = fopen(sim_config, "w")))
+  {
+    if (0)
+    {
       /* BJD was conditional debug */
       fprintf(f, "set verbose\n");
       fprintf(f, "set debug -n -a -p simulator.dbg\n");
@@ -366,19 +309,22 @@ int panel_setup() {
   panel = sim_panel_start_simulator_debug(sim_path, sim_config, 2,
                                           debug ? "frontpanel.dbg" : NULL);
 
-  if (!panel) {
+  if (!panel)
+  {
     printf("Error starting simulator %s with config %s: %s\n", sim_path,
            sim_config, sim_panel_get_error());
     goto Done;
   }
 
-  if (debug) {
+  if (debug)
+  {
     sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP |
                                         DBG_THR | DBG_APP);
   }
   sim_panel_debug(panel, "Starting Debug\n");
   /*	code to add tape drive removed */
-  if (1) {
+  if (1)
+  {
     /* unsigned int noop_noop_noop_halt = 0101000, addr400 = 0x00400,
      * pc_value;*/
     /* unsigned long long int noop_noop_noop_halt = 8100810081000000ull; */
@@ -393,7 +339,8 @@ int panel_setup() {
     /* static int inst[5] = {0101000, 0101000, 0101000, 0, 03100}; */
     static int inst[5] = {0101000, 0141206, 0101000, 0, 03100};
 
-    for (j = 0; j < 6; j++) {
+    for (j = 0; j < 6; j++)
+    {
       addrofi = &inst[j];
       sim_panel_mem_deposit(panel, sizeof(addrx), &addrx, sizeof(inst[0]),
                             addrofi);
@@ -407,156 +354,188 @@ int panel_setup() {
        setting 00000000 to %016llX: %s\n", noop_noop_noop_halt,
        sim_panel_get_error()); goto Done;
         } */
-    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400)) {
+    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400))
+    {
       printf("Error setting p to %08X: %s\n", addr400, sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_exec_start(panel)) {
+    if (sim_panel_exec_start(panel))
+    {
       printf("Error starting simulator execution: %s\n", sim_panel_get_error());
       goto Done;
     }
-    while ((sim_panel_get_state(panel) == Run) && (mstime < 1000)) {
+    while ((sim_panel_get_state(panel) == Run) && (mstime < 1000))
+    {
       usleep(100000);
       mstime += 100;
     }
-    if (sim_panel_get_state(panel) != Halt) {
+    if (sim_panel_get_state(panel) != Halt)
+    {
       printf("Unexpected execution state not Halt: %d\n",
              sim_panel_get_state(panel));
       goto Done;
     }
     pc_value = 0;
-    if (sim_panel_gen_examine(panel, "P", sizeof(pc_value), &pc_value)) {
+    if (sim_panel_gen_examine(panel, "P", sizeof(pc_value), &pc_value))
+    {
       printf("Unexpected error getting p value: %s\n", sim_panel_get_error());
       goto Done;
     }
-    if (pc_value != addr400 + 4) {
+    if (pc_value != addr400 + 4)
+    {
       printf("Unexpected error getting p value: %08X, expected: %08X\n",
              pc_value, addr400 + 4);
       goto Done;
     }
   }
 
-  if (sim_panel_add_register(panel, "P", NULL, sizeof(P), &P)) {
+  if (sim_panel_add_register(panel, "P", NULL, sizeof(P), &P))
+  {
     printf("Error adding register 'P': %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_add_register_indirect(panel, "P", NULL, sizeof(atP), &atP)) {
+  if (sim_panel_add_register_indirect(panel, "P", NULL, sizeof(atP), &atP))
+  {
     printf("Error adding register indirect 'P': %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_add_register(panel, "A", NULL, sizeof(A), &A)) {
+  if (sim_panel_add_register(panel, "A", NULL, sizeof(A), &A))
+  {
     printf("Error adding register 'A': %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_add_register(panel, "B", NULL, sizeof(B), &B)) {
+  if (sim_panel_add_register(panel, "B", NULL, sizeof(B), &B))
+  {
     printf("Error adding register 'B': %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_add_register(panel, "X", NULL, sizeof(X), &X)) {
+  if (sim_panel_add_register(panel, "X", NULL, sizeof(X), &X))
+  {
     printf("Error adding register 'X': %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_get_registers(panel, NULL)) {
+  if (sim_panel_get_registers(panel, NULL))
+  {
     printf("Error getting register data: %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (1) {
+  if (1)
+  {
     unsigned int deadbeef = 0123456, beefdead = 0123456, addr200 = 0x0000200,
                  beefdata;
 
-    if (sim_panel_set_register_value(panel, "A", "123456")) {
+    if (sim_panel_set_register_value(panel, "A", "123456"))
+    {
       printf("Error setting A to 123456: %s\n", sim_panel_get_error());
       goto Done;
     }
     if (sim_panel_mem_deposit(panel, sizeof(addr200), &addr200,
-                              sizeof(deadbeef), &deadbeef)) {
+                              sizeof(deadbeef), &deadbeef))
+    {
       printf("Error setting 00000200 to 123456: %s\n", sim_panel_get_error());
       goto Done;
     }
     beefdata = 0;
     if (sim_panel_mem_examine(panel, sizeof(addr200), &addr200,
-                              sizeof(beefdata), &beefdata)) {
+                              sizeof(beefdata), &beefdata))
+    {
       printf("Error getting contents of memory location 0200: %s\n",
              sim_panel_get_error());
       goto Done;
     }
     beefdata = 0;
   }
-  if (sim_panel_get_registers(panel, NULL)) {
+  if (sim_panel_get_registers(panel, NULL))
+  {
     printf("Error getting register data: %s\n", sim_panel_get_error());
     goto Done;
   }
   if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL,
-                                              200000)) {
+                                              200000))
+  {
     printf("Error setting automatic display callback: %s\n",
            sim_panel_get_error());
     goto Done;
   }
   sim_panel_clear_error();
-  if (sim_panel_break_set(panel, "400")) {
+  if (sim_panel_break_set(panel, "400"))
+  {
     printf("Unexpected error establishing a breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_break_clear(panel, "400")) {
+  if (sim_panel_break_clear(panel, "400"))
+  {
     printf("Unexpected error clearing a breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_break_output_set(panel, "\"32..31..30\"")) {
+  if (sim_panel_break_output_set(panel, "\"32..31..30\""))
+  {
     printf("Unexpected error establishing an output breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_break_output_clear(panel, "\"32..31..30\"")) {
+  if (sim_panel_break_output_clear(panel, "\"32..31..30\""))
+  {
     printf("Unexpected error clearing an output breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
   if (sim_panel_break_output_set(
-          panel, "-P \"Normal operation not possible.\" SHOW QUEUE")) {
+          panel, "-P \"Normal operation not possible.\" SHOW QUEUE"))
+  {
     printf("Unexpected error establishing an output breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_break_output_set(panel, "-P \"Device? [XQA0]: \"")) {
+  if (sim_panel_break_output_set(panel, "-P \"Device? [XQA0]: \""))
+  {
     printf("Unexpected error establishing an output breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_break_output_set(panel, "-P \"(1..15): \" SEND \"4\\r\"; GO")) {
+  if (sim_panel_break_output_set(panel, "-P \"(1..15): \" SEND \"4\\r\"; GO"))
+  {
     printf("Unexpected error establishing an output breakpoint: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (!sim_panel_set_sampling_parameters_ex(panel, 0, 0, 199)) {
+  if (!sim_panel_set_sampling_parameters_ex(panel, 0, 0, 199))
+  {
     printf("Unexpected success setting sampling parameters to 0, 0, 199\n");
     goto Done;
   }
-  if (!sim_panel_set_sampling_parameters_ex(panel, 199, 0, 0)) {
+  if (!sim_panel_set_sampling_parameters_ex(panel, 199, 0, 0))
+  {
     printf("Unexpected success setting sampling parameters to 199, 0, 0\n");
     goto Done;
   }
-  if (!sim_panel_set_sampling_parameters_ex(panel, 500, 40, 100)) {
+  if (!sim_panel_set_sampling_parameters_ex(panel, 500, 40, 100))
+  {
     printf("Unexpected success setting sampling parameters to 500, 40, 100\n");
     goto Done;
   }
-  if (sim_panel_set_sampling_parameters_ex(panel, 500, 10, 100)) {
+  if (sim_panel_set_sampling_parameters_ex(panel, 500, 10, 100))
+  {
     printf("Unexpected error setting sampling parameters to 500, 10, 100: %s\n",
            sim_panel_get_error());
     goto Done;
   }
   if (sim_panel_add_register_indirect_bits(panel, "P", NULL, 32,
-                                           PC_indirect_bits)) {
+                                           PC_indirect_bits))
+  {
     printf("Error adding register 'P' indirect bits: %s\n",
            sim_panel_get_error());
     goto Done;
   }
-  if (sim_panel_add_register_bits(panel, "P", NULL, 16, P_bits)) {
+  if (sim_panel_add_register_bits(panel, "P", NULL, 16, P_bits))
+  {
     printf("Error adding register 'P' bits: %s\n", sim_panel_get_error());
     goto Done;
   }
-  if (1) {
+  if (1)
+  {
     unsigned int noop_noop_noop_halt = 0x81008100, brb_self = 0x0600,
                  addr400 = 0100, pc_value;
     int mstime;
@@ -568,7 +547,8 @@ int panel_setup() {
 
     static int inst[4] = {0101000, 0101000, 0101000, 0};
 
-    for (j = 0; j < 5; j++) {
+    for (j = 0; j < 5; j++)
+    {
       addrofi = &inst[j];
       sim_panel_mem_deposit(panel, sizeof(addrx), &addrx, sizeof(inst[0]),
                             addrofi);
@@ -582,80 +562,97 @@ sizeof(noop_noop_noop_halt), &noop_noop_noop_halt)) { printf ("Error setting
 Done;
         }
 */
-    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400)) {
+    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400))
+    {
       printf("Error setting P to %08X: %s\n", addr400, sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_exec_run(panel)) {
+    if (sim_panel_exec_run(panel))
+    {
       printf("Error starting simulator execution: %s\n", sim_panel_get_error());
       goto Done;
     }
-    if (!sim_panel_get_registers(panel, NULL)) {
+    if (!sim_panel_get_registers(panel, NULL))
+    {
       printf("Unexpected success getting register data: %s\n",
              sim_panel_get_error());
       goto Done;
     }
     mstime = 0;
-    while ((sim_panel_get_state(panel) == Run) && (mstime < 1000)) {
+    while ((sim_panel_get_state(panel) == Run) && (mstime < 1000))
+    {
       usleep(100000);
       mstime += 100;
     }
-    if (sim_panel_get_state(panel) != Halt) {
+    if (sim_panel_get_state(panel) != Halt)
+    {
       printf("Unexpected execution state not Halt\n");
       goto Done;
     }
     pc_value = 0;
-    if (sim_panel_gen_examine(panel, "P", sizeof(pc_value), &pc_value)) {
+    if (sim_panel_gen_examine(panel, "P", sizeof(pc_value), &pc_value))
+    {
       printf("Unexpected error getting P value: %s\n", sim_panel_get_error());
       goto Done;
     }
-    if (pc_value != addr400 + 4) {
+    if (pc_value != addr400 + 4)
+    {
       printf("Unexpected P value after HALT: %08X, expected: %08X\n", pc_value,
              addr400 + 4);
       goto Done;
     }
-    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400)) {
+    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400))
+    {
       printf("Error setting P to %08X: %s\n", addr400, sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_exec_step(panel)) {
+    if (sim_panel_exec_step(panel))
+    {
       printf("Error executing a single step: %s\n", sim_panel_get_error());
       goto Done;
     }
     pc_value = 0;
-    if (sim_panel_gen_examine(panel, "P", sizeof(pc_value), &pc_value)) {
+    if (sim_panel_gen_examine(panel, "P", sizeof(pc_value), &pc_value))
+    {
       printf("Unexpected error getting P value: %s\n", sim_panel_get_error());
       goto Done;
     }
-    if (pc_value != addr400 + 1) {
+    if (pc_value != addr400 + 1)
+    {
       printf("Unexpected P value after STEP: %08X, expected: %08X\n", pc_value,
              addr400 + 1);
       goto Done;
     }
     if (sim_panel_mem_deposit(panel, sizeof(addr400), &addr400,
-                              sizeof(brb_self), &brb_self)) {
+                              sizeof(brb_self), &brb_self))
+    {
       printf("Error setting %08X to %08X: %s\n", addr400, brb_self,
              sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400)) {
+    if (sim_panel_gen_deposit(panel, "P", sizeof(addr400), &addr400))
+    {
       printf("Error setting P to %08X: %s\n", addr400, sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_exec_run(panel)) {
+    if (sim_panel_exec_run(panel))
+    {
       printf("Error starting simulator execution: %s\n", sim_panel_get_error());
       goto Done;
     }
     mstime = 0;
-    while ((sim_panel_get_state(panel) == Run) && (mstime < 1000)) {
+    while ((sim_panel_get_state(panel) == Run) && (mstime < 1000))
+    {
       usleep(100000);
       mstime += 100;
     }
-    if (sim_panel_exec_halt(panel)) {
+    if (sim_panel_exec_halt(panel))
+    {
       printf("Error executing halt: %s\n", sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_get_state(panel) != Halt) {
+    if (sim_panel_get_state(panel) != Halt)
+    {
       printf("State not Halt after successful Halt\n");
       goto Done;
     }
@@ -676,41 +673,45 @@ Done:
 // int usbin();
 // int usbout(int c,FILE* usbfile2);
 
-int sim_bryan(PANEL *panel, const char* string, const char *device) { 
-/* 	new code to set register value "bryan <x> <yyy>" where x = a,b,c,p and yyy = octal string */
-char *ptr;
-const char* reg;
-const char * value;
-char string2[2];
+int sim_bryan(PANEL *panel, const char *string, const char *device)
+{
+  /* 	new code to set register value "bryan <x> <yyy>" where x = a,b,c,p and yyy = octal string */
+  char *ptr;
+  const char *reg;
+  const char *value;
+  char string2[2];
 
-/* assume "clean" data */
-reg = &string[6];
-string2[0] = string[6];
-string2[1] = 0;
-value = &string[8];
+  /* assume "clean" data */
+  reg = &string[6];
+  string2[0] = string[6];
+  string2[1] = 0;
+  value = &string[8];
 
-printf("BJD sim_bryan\n"); 
+  printf("BJD sim_bryan\n");
 
-int i;
-i = 'b';
-// usbout(i,usbfile);
-i = '\r';
-// usbout(i,usbfile);
+  int i;
+  i = 'b';
+  // usbout(i,usbfile);
+  i = '\r';
+  // usbout(i,usbfile);
 
-    if (sim_panel_set_register_value(panel, string2, value )) {
-      printf("Error setting A to 123456: %s\n", sim_panel_get_error());
-      /* goto Done;*/
-    }
-return(0);
+  if (sim_panel_set_register_value(panel, string2, value))
+  {
+    printf("Error setting A to 123456: %s\n", sim_panel_get_error());
+    /* goto Done;*/
+  }
+  return (0);
 }
 
-int match_command(const char *command, const char *string, const char **arg) {
+int match_command(const char *command, const char *string, const char **arg)
+{
   int match_chars = 0;
   size_t i;
 
   while (isspace(*string))
     ++string;
-  for (i = 0; i < strlen(command); i++) {
+  for (i = 0; i < strlen(command); i++)
+  {
     if (command[i] == (islower(string[i]) ? toupper(string[i]) : string[i]))
       continue;
     if (string[i] == '\0')
@@ -726,7 +727,8 @@ int match_command(const char *command, const char *string, const char **arg) {
   return (i > 0) && (arg ? 1 : (string[i] == '\0'));
 }
 
-struct execution_breakpoint {
+struct execution_breakpoint
+{
   unsigned int addr;
   const char *desc;
   const char *extra;
@@ -756,19 +758,10 @@ struct execution_breakpoint {
      "SHOW HIST=10; EX SYSD STATE"},
     {0x0, NULL}};
 
-/* BJD */
-// int  BJD_set_trace(int);
 
-// usbio* usbx;	// declare one usbio object
-
-int main(int argc, char **argv) {
-
-	 // usb_init();
-
-    // pthread_t thread_id;
-    // printf("Before Thread\n");
-    // pthread_create(&thread_id, NULL, myThreadFun, NULL);
-	async_start();	// test
+int main(int argc, char **argv)
+{
+  async_start(); // start thread to read USB connection to H316 hardware frontpanel FW
 
   int was_halted = 1, i;
 
@@ -783,13 +776,14 @@ int main(int argc, char **argv) {
   sim_panel_debug(panel, "start debugging\n");
   sim_panel_flush_debug(panel);
 
-  if (1) {
-    struct {
+  if (1)
+  {
+    struct
+    {
       unsigned int addr;
       const char *instr;
     } long_running_program[] = {
-        {0100, "141206"},  {0101, "0"},       {0102, "2100"}, {0103, "ota 4"},
-        {0104, "jmp 103"}, {0105, "jmp 100"}, {0, NULL}};
+        {0100, "141206"}, {0101, "0"}, {0102, "2100"}, {0103, "ota 4"}, {0104, "jmp 103"}, {0105, "jmp 100"}, {0, NULL}};
     int i;
     /*
                 {0100, "ocp 4"},
@@ -807,7 +801,8 @@ int main(int argc, char **argv) {
     for (i = 0; long_running_program[i].instr; i++)
       if (sim_panel_mem_deposit_instruction(
               panel, sizeof(long_running_program[i].addr),
-              &long_running_program[i].addr, long_running_program[i].instr)) {
+              &long_running_program[i].addr, long_running_program[i].instr))
+      {
         printf("Error setting depositing instruction '%s' into memory at "
                "location %XA: %s\n",
                long_running_program[i].instr, long_running_program[i].addr,
@@ -815,23 +810,27 @@ int main(int argc, char **argv) {
         goto Done;
       }
     if (sim_panel_gen_deposit(panel, "P", sizeof(long_running_program[0].addr),
-                              &long_running_program[0].addr)) {
+                              &long_running_program[0].addr))
+    {
       printf("Error setting P to %X: %s\n", long_running_program[0].addr,
              sim_panel_get_error());
       goto Done;
     }
-    if (sim_panel_exec_start(panel)) {
+    if (sim_panel_exec_start(panel))
+    {
       printf("Error starting simulator execution: %s\n", sim_panel_get_error());
       goto Done;
     }
     usleep(100000); /* .1 seconds */
     sim_panel_debug(panel, "Testing sim_panel_exec_halt");
-    if (sim_panel_exec_halt(panel)) {
+    if (sim_panel_exec_halt(panel))
+    {
       printf("Error halting simulator execution: %s\n", sim_panel_get_error());
       goto Done;
     }
     sim_panel_debug(panel, "Testing sim_panel_exec_run");
-    if (sim_panel_exec_run(panel)) {
+    if (sim_panel_exec_run(panel))
+    {
       printf("Error resuming simulator execution: %s\n", sim_panel_get_error());
       goto Done;
     }
@@ -843,41 +842,39 @@ int main(int argc, char **argv) {
   /* ************************************************* */
   /*	test operator commands			*/
 
-  struct {
+  struct
+  {
     unsigned int addr;
     const char *instr;
-  } long_running_program[] = {{0100, "24000"}, {0101, "2100"}, {0102, "141206"},
-                              {0103, "2100"},  {0104, "0"},    {0105, "0"},
-                              {0, NULL}};
+  } long_running_program[] = {{0100, "24000"}, {0101, "2100"}, {0102, "141206"}, {0103, "2100"}, {0104, "0"}, {0105, "2100"}, {0, NULL}};
+  /*  irs 0
+      jmp 100
+      aoa
+      jmp 100
+      hlt
+      jmp 100 */
 
   sim_panel_clear_error();
   InitDisplay();
   if (panel_setup())
     goto Done;
   /*	remove breakpoint tests -(specific to VAX)---------------
-  for (i=0; breakpoints[i].addr; i++) {
-      char buf[120];
-
-      sprintf (buf, "%08X;SHOW QUEUE%s%s", breakpoints[i].addr,
-  breakpoints[i].extra ? ";" : "", breakpoints[i].extra ? breakpoints[i].extra :
-  ""); if (sim_panel_break_set (panel, buf)) { printf ("Error establishing
-  breakpoint at %s: %s\n", breakpoints[i].desc, sim_panel_get_error()); goto
-  Done;
-          }
-      }
   ----------------- */
   unsigned int addr100 = 0100;
 
   sim_panel_debug(panel, "Testing with Command interface");
   DisplayRegisters(panel, 1, 1);
-  if (sim_panel_gen_deposit(panel, "P", sizeof(addr100), &addr100)) {
+  if (sim_panel_gen_deposit(panel, "P", sizeof(addr100), &addr100))
+  {
     printf("Error setting p to %08X: %s\n", addr100, sim_panel_get_error());
   }
 
+  /* DEBUG BJD - check this doloop */
   for (i = 0; long_running_program[i].instr; i++)
     if (sim_panel_mem_deposit_instruction(
             panel, sizeof(long_running_program[i].addr),
-            &long_running_program[i].addr, long_running_program[i].instr)) {
+            &long_running_program[i].addr, long_running_program[i].instr))
+    {
       printf("Error setting depositing instruction '%s' into memory at "
              "location %XA: %s\n",
              long_running_program[i].instr, long_running_program[i].addr,
@@ -885,14 +882,17 @@ int main(int argc, char **argv) {
       goto Done;
     }
 
-  while (1) { /*** start of long-running command/display loop ***/
+  while (1)
+  { /*** start of long-running command/display loop ***/
     char cmd[512];
     const char *arg;
 
-    while (sim_panel_get_state(panel) == Halt) {
+    while (sim_panel_get_state(panel) == Halt)
+    {
       sim_panel_debug(panel, "Halted - Getting registers...");
       sim_panel_get_registers(panel, &simulation_time);
-      if (!was_halted) {
+      if (!was_halted)
+      {
         const char *haltmsg = sim_panel_halt_text(panel);
         const char *bpt;
         unsigned int Bpt_PC;
@@ -900,10 +900,13 @@ int main(int argc, char **argv) {
         DisplayRegisters(panel, 0, 1);
         if (*haltmsg)
           printf("%s", haltmsg);
-        if ((bpt = strstr(haltmsg, "Breakpoint, PC: "))) {
+        if ((bpt = strstr(haltmsg, "Breakpoint, PC: ")))
+        {
           sscanf(bpt, "Breakpoint, PC: %X", &Bpt_PC);
-          for (i = 0; breakpoints[i].addr; i++) {
-            if (Bpt_PC == breakpoints[i].addr) {
+          for (i = 0; breakpoints[i].addr; i++)
+          {
+            if (Bpt_PC == breakpoints[i].addr)
+            {
               printf("Breakpoint at: %08X %s\n", breakpoints[i].addr,
                      breakpoints[i].desc);
               break;
@@ -920,34 +923,49 @@ int main(int argc, char **argv) {
       while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
         cmd[strlen(cmd) - 1] = '\0';
       DisplayRegisters(panel, 1, 1);
-      if (match_command("BRYAN", cmd, &arg)) {
-        if (sim_bryan(panel, cmd, arg )) /* BJD test command */
+      if (match_command("BRYAN", cmd, &arg))
+      {
+        if (sim_bryan(panel, cmd, arg)) /* BJD test command */
           break;
-      } else if (match_command("BOOT", cmd, &arg)) {
+      }
+      else if (match_command("BOOT", cmd, &arg))
+      {
         if (sim_panel_exec_boot(panel, arg))
           break;
-      } else if (match_command("BREAK ", cmd, &arg)) {
+      }
+      else if (match_command("BREAK ", cmd, &arg))
+      {
         if (sim_panel_break_set(panel, arg))
           printf("Error Setting Breakpoint '%s': %s\n", arg,
                  sim_panel_get_error());
-      } else if (match_command("NOBREAK ", cmd, &arg)) {
+      }
+      else if (match_command("NOBREAK ", cmd, &arg))
+      {
         if (sim_panel_break_clear(panel, arg))
           printf("Error Clearing Breakpoint '%s': %s\n", arg,
                  sim_panel_get_error());
-      } else if (match_command("STEP", cmd, NULL)) {
+      }
+      else if (match_command("STEP", cmd, NULL))
+      {
         if (sim_panel_exec_step(panel))
           break;
-      } else if (match_command("CONT", cmd, NULL)) {
+      }
+      else if (match_command("CONT", cmd, NULL))
+      {
         if (sim_panel_exec_run(panel))
           break;
-      } else if (match_command("EXAMINE ", cmd, &arg)) {
+      }
+      else if (match_command("EXAMINE ", cmd, &arg))
+      {
         int value;
 
         if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
           printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
         else
           printf("%s: %08o\n", arg, value); /* BJD */
-      } else if (match_command("HISTORY ", cmd, &arg)) {
+      }
+      else if (match_command("HISTORY ", cmd, &arg))
+      {
         char history[10240];
         int count = atoi(arg);
 
@@ -957,32 +975,42 @@ int main(int argc, char **argv) {
                  sim_panel_get_error());
         else
           printf("%s\n", history);
-      } else if (match_command("DEBUG ", cmd, &arg)) {
-        if (arg[0] == '-') {
+      }
+      else if (match_command("DEBUG ", cmd, &arg))
+      {
+        if (arg[0] == '-')
+        {
           if (sim_panel_device_debug_mode(panel, NULL, 1, arg))
             printf("Error setting debug mode: %s\n", sim_panel_get_error());
-        } else {
+        }
+        else
+        {
           /* BJD Debug */
           /* if (sim_panel_device_debug_mode (panel, arg, 1, NULL)) */
           if (sim_panel_device_debug_mode(panel, NULL, 1, NULL))
             printf("Error setting debug mode: %s\n", sim_panel_get_error());
         }
-      } else if ((match_command("EXIT", cmd, NULL)) ||
-                 (match_command("QUIT", cmd, NULL)))
+      }
+      else if ((match_command("EXIT", cmd, NULL)) ||
+               (match_command("QUIT", cmd, NULL)))
         goto Done;
-      else {
+      else
+      {
         DisplayRegisters(panel, 0, 1);
         printf("Huh? %s\r\n", cmd);
       }
     }
-    while (sim_panel_get_state(panel) == Run) { /** simulator is running **/
+    while (sim_panel_get_state(panel) == Run)
+    { /** simulator is running **/
       usleep(100000);
-      if (update_display) {
+      if (update_display)
+      {
         update_display = 0;
         DisplayRegisters(panel, 0, 0);
       }
       was_halted = 0;
-      if (halt_cpu) {
+      if (halt_cpu)
+      {
         halt_cpu = 0;
         sim_panel_exec_halt(panel);
       }

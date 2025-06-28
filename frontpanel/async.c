@@ -1,4 +1,3 @@
-
 #include <stdio.h>  
 #include <fcntl.h>    /* file open flags and open() */
 #include <termios.h>
