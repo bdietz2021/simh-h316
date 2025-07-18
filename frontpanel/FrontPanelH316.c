@@ -111,6 +111,9 @@ void my_printf(const char *fmt, ...)
     memmove(c, c + 1, strlen(c));
   printw("%s", buf);
 }
+//
+//
+//
 #endif /* BJD_HAVE_NCURSES */
 #endif
 
@@ -126,11 +129,10 @@ const char *sim_path =
 const char *sim_config = "H316-PANEL.ini";
 
 /* Registers visible on the Front Panel */
-static unsigned int SC;
+
 static unsigned short int P, A, B, X, atP;
 static unsigned int PCQ[32];
 
-int SC_bits[32];
 int P_bits[16];
 int PC_indirect_bits[32];
 int PCQ_3_bits[32];
@@ -157,7 +159,7 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
       buf4[sizeof(buf4) - 1] = 0;
   sprintf(buf1, "%4s P: %08o    @P: %08o\n", states[sim_panel_get_state(panel)],
           P, atP);
-  sprintf(buf2, "SC: %08o  Instructions Executed: %lld\n", SC, simulation_time);
+  sprintf(buf2, "Instructions Executed: %lld\n", simulation_time);
   sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X);
 #if defined(_WIN32)
   if (1)
@@ -265,7 +267,7 @@ void halt_handler(int sig)
   return;
 }
 
-int panel_setup()
+int panel_setup() /* called from main() */
 {
   FILE *f;
 
@@ -306,6 +308,7 @@ int panel_setup()
   }
 
   signal(SIGINT, halt_handler);
+  /* load h316 simulator program. this does not start anh h316 code, just the sim */
   panel = sim_panel_start_simulator_debug(sim_path, sim_config, 2,
                                           debug ? "frontpanel.dbg" : NULL);
 
@@ -661,7 +664,7 @@ Done;
   return 0;
 
 Done:
-  sim_panel_destroy(panel);
+  sim_panel_destroy(panel); /* stop the h316 simulator program. */
   panel = NULL;
 
   /* Get rid of pseudo config file created above */
@@ -673,7 +676,7 @@ Done:
 // int usbin();
 // int usbout(int c,FILE* usbfile2);
 
-int sim_bryan(PANEL *panel, const char *string, const char *device)
+int sim_bryan(PANEL *panel, const char *string, const char *device) /*****************DEBUG BJD ***** */
 {
   /* 	new code to set register value "bryan <x> <yyy>" where x = a,b,c,p and yyy = octal string */
   char *ptr;
@@ -759,7 +762,7 @@ struct execution_breakpoint
     {0x0, NULL}};
 
 
-int main(int argc, char **argv)
+int main(int argc, char **argv) /********** main ************************** */
 {
   async_start(); // start thread to read USB connection to H316 hardware frontpanel FW
 
@@ -836,7 +839,7 @@ int main(int argc, char **argv)
     }
     usleep(2000000); /* 2 Seconds */
     sim_panel_debug(panel, "Shutting down while simulator is running");
-    sim_panel_destroy(panel);
+    sim_panel_destroy(panel); /* stop the h316 simulator */
   }
 
   /* ************************************************* */
@@ -1019,7 +1022,7 @@ int main(int argc, char **argv)
 
 Done:
   DisplayRegisters(panel, 0, 1);
-  sim_panel_destroy(panel);
+  sim_panel_destroy(panel); /* stop the h316 simulator */
 
   /* Get rid of pseudo config file created earlier */
   (void)remove(sim_config);
