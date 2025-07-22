@@ -30,6 +30,7 @@ Based on FrontPanelTest.c
 06/12/2025 - resume after working on front panel firmware
 06/25/2025 - add JSON message with register values
 06/27/2025 - try clean up editing on mac with vsedit
+07/19/2025 - extend commands, add pass through
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -347,6 +348,8 @@ int panel_setup() /* called from main() */
       addrofi = &inst[j];
       sim_panel_mem_deposit(panel, sizeof(addrx), &addrx, sizeof(inst[0]),
                             addrofi);
+      //  sim_panel_escape(panel, sizeof(addrx), &addrx, sizeof(inst[0]),
+      //                       addrofi);
       addrx += 1;
     }
 
@@ -926,9 +929,19 @@ int main(int argc, char **argv) /********** main ************************** */
       while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
         cmd[strlen(cmd) - 1] = '\0';
       DisplayRegisters(panel, 1, 1);
+      int iii;
+      if (cmd[0] == '!') {  /* ! means pass cmd to simulator */
+        iii = strlen(cmd);
+        if (cmd[iii-1] != '\r') { /* make sure string ends in c/r */
+          cmd[iii] = '\r';
+          cmd[iii+1] = 0;
+        }
+       sim_panel_escape(panel,&cmd[1],strlen(cmd));
+       break;
+      }
       if (match_command("BRYAN", cmd, &arg))
       {
-        if (sim_bryan(panel, cmd, arg)) /* BJD test command */
+      if (sim_bryan(panel, cmd, arg)) /* BJD test command */
           break;
       }
       else if (match_command("BOOT", cmd, &arg))

@@ -2212,6 +2212,48 @@ int clock_gettime(int clk_id, struct timespec *tp)
     return 0;
   }
 
+  int sim_panel_escape(PANEL *panel,char *buffer, int len)
+  {
+    _panel_send(panel, buffer, len);
+
+  };
+
+  // int sim_panel_escape(PANEL *panel, size_t addr_size, const void *addr,
+  //                           size_t value_size, const void *value)
+  // {
+  //   unsigned long long data = 0, address = 0;
+  //   int cmd_stat;
+
+  //   if (!panel || (panel->State == Error))
+  //   {
+  //     sim_panel_set_error(NULL, "Invalid Panel");
+  //     return -1;
+  //   }
+  //   if (panel->State == Run)
+  //   {
+  //     sim_panel_set_error(NULL, "Not Halted");
+  //     return -1;
+  //   }
+  //   if (little_endian)
+  //   {
+  //     memcpy(&data, value, value_size);
+  //     memcpy(&address, addr, addr_size);
+  //   }
+  //   else
+  //   {
+  //     memcpy(((char *)&data) + sizeof(data) - value_size, value, value_size);
+  //     memcpy(((char *)&address) + sizeof(address) - addr_size, addr, addr_size);
+  //   }
+  //   if (_panel_sendf(panel, &cmd_stat, NULL,
+  //                    (panel->radix == 16) ? "DEPOSIT %llo %llo"
+  //                                         : "DEPOSIT %llo %llo",
+  //                    address, data))
+  //     // if (_panel_sendf (panel, &cmd_stat, NULL, (panel->radix == 16) ? "DEPOSIT
+  //     // -H %llx %llx" : "DEPOSIT -H %llo %llx", address, data))
+  //     return -1;
+  //   return 0;
+  // }
+
   /**
 
      sim_panel_mem_deposit_instruction

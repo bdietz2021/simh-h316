@@ -424,6 +424,11 @@ sim_panel_mem_deposit (PANEL *panel,
                        size_t value_size,
                        const void *value);
 
+//  int sim_panel_escape(PANEL *panel, size_t addr_size, const void *addr, /* BJD Debug */
+//                             size_t value_size, const void *value);
+
+ int sim_panel_escape(PANEL *panel,char *buffer, int len);
+
 /**
 
    sim_panel_mem_deposit_instruction
@@ -549,6 +554,11 @@ sim_panel_mount (PANEL *panel,
 int
 sim_panel_dismount (PANEL *panel,
                     const char *device);
+
+                    /* BJD */
+
+ static int _panel_sendf(PANEL *panel, int *completion_status, char **response,
+                          const char *fmt, ...);
 
 
 typedef enum {
