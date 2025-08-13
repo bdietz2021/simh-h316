@@ -424,10 +424,12 @@ sim_panel_mem_deposit (PANEL *panel,
                        size_t value_size,
                        const void *value);
 
-//  int sim_panel_escape(PANEL *panel, size_t addr_size, const void *addr, /* BJD Debug */
+//
+// execute any simulator command
+//  int sim_panel_escape(PANEL *panel, size_t addr_size, const void *addr, /* BJD new command */
 //                             size_t value_size, const void *value);
 
- int sim_panel_escape(PANEL *panel,char *buffer, int len);
+ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len);
 
 /**
 

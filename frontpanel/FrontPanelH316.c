@@ -207,7 +207,9 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
 
     /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
     /* compose JSON-formatted register contents message */
-    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+    // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Run\":%s}>", A, B, X, P,
+      states[sim_panel_get_state(panel)]);
     write_to_async(fd, strlen(jsonbuf), jsonbuf);
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
@@ -936,9 +938,11 @@ int main(int argc, char **argv) /********** main ************************** */
           cmd[iii] = '\r';
           cmd[iii+1] = 0;
         }
-       sim_panel_escape(panel,&cmd[1],strlen(cmd));
+       sim_panel_escape(panel,1,&cmd[1],strlen(cmd)); // print data, set option
        break;
       }
+      sim_panel_escape(panel,0,&cmd[1],strlen(cmd)); // clear print option
+      //
       if (match_command("BRYAN", cmd, &arg))
       {
       if (sim_bryan(panel, cmd, arg)) /* BJD test command */

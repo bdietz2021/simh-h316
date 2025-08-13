@@ -520,7 +520,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
     size_t i, j, buf_data, buf_needed = 0, reg_count = 0, bit_reg_count = 0;
     const char *dev;
 
-    pthread_mutex_lock(&panel->io_lock);
+    pthread_mutex_lock(&panel->io_lock);  // WAIT - 
     buf_needed = 3 + 7 +                      /* EXECUTE */
                  strlen(register_get_start) + /* # REGISTERS-START */
                  strlen(register_get_prefix); /* SHOW TIME */
@@ -1554,7 +1554,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
     panel->io_response_data = 0;
     panel->io_waiting = 1;
     while (panel->io_waiting)
-      pthread_cond_wait(&panel->io_done, &panel->io_lock);
+      pthread_cond_wait(&panel->io_done, &panel->io_lock);  // WAIT for io_done 
     if (simulation_time)
       *simulation_time = panel->simulation_time;
     pthread_mutex_unlock(&panel->io_lock);
@@ -1596,7 +1596,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
                      (void *)panel);
       pthread_attr_destroy(&attr);
       while (!panel->callback_thread_running)
-        pthread_cond_wait(&panel->startup_done,
+        pthread_cond_wait(&panel->startup_done, // WAIT for startup_done
                           &panel->io_lock); /* Wait for thread to stabilize */
       pthread_cond_destroy(&panel->startup_done);
     }
@@ -2211,48 +2211,19 @@ int clock_gettime(int clk_id, struct timespec *tp)
       return -1;
     return 0;
   }
-
-  int sim_panel_escape(PANEL *panel,char *buffer, int len)
+/* */
+//
+//  sim_panel_escape - sends a text command to the emulator
+//  !command - sends "command" to emulator
+//
+static int sim_panel_escape_output = 0;
+//
+int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
   {
-    _panel_send(panel, buffer, len);
+    sim_panel_escape_output = option; // expect output from simulator
+   if (option != 0)  _panel_send(panel, buffer, len);
 
   };
-
-  // int sim_panel_escape(PANEL *panel, size_t addr_size, const void *addr,
-  //                           size_t value_size, const void *value)
-  // {
-  //   unsigned long long data = 0, address = 0;
-  //   int cmd_stat;
-
-  //   if (!panel || (panel->State == Error))
-  //   {
-  //     sim_panel_set_error(NULL, "Invalid Panel");
-  //     return -1;
-  //   }
-  //   if (panel->State == Run)
-  //   {
-  //     sim_panel_set_error(NULL, "Not Halted");
-  //     return -1;
-  //   }
-  //   if (little_endian)
-  //   {
-  //     memcpy(&data, value, value_size);
-  //     memcpy(&address, addr, addr_size);
-  //   }
-  //   else
-  //   {
-  //     memcpy(((char *)&data) + sizeof(data) - value_size, value, value_size);
-  //     memcpy(((char *)&address) + sizeof(address) - addr_size, addr, addr_size);
-  //   }
-  //   if (_panel_sendf(panel, &cmd_stat, NULL,
-  //                    (panel->radix == 16) ? "DEPOSIT %llo %llo"
-  //                                         : "DEPOSIT %llo %llo",
-  //                    address, data))
-  //     // if (_panel_sendf (panel, &cmd_stat, NULL, (panel->radix == 16) ? "DEPOSIT
-  //     // -H %llx %llx" : "DEPOSIT -H %llo %llx", address, data))
-  //     return -1;
-  //   return 0;
-  // }
 
   /**
 
@@ -2438,7 +2409,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
       while (1)
       {
         int new_data =
-            sim_read_sock(p->sock, &buf[buf_data], sizeof(buf) - (buf_data + 1));
+            sim_read_sock(p->sock, &buf[buf_data], sizeof(buf) - (buf_data + 1)); // READ data from SIMH
 
         if (new_data <= 0)
         {
@@ -2485,7 +2456,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
       {
         pthread_mutex_unlock(&p->io_lock);
         new_data =
-            sim_read_sock(p->sock, &buf[buf_data], sizeof(buf) - (buf_data + 1));
+            sim_read_sock(p->sock, &buf[buf_data], sizeof(buf) - (buf_data + 1)); // READ data from simh
         pthread_mutex_lock(&p->io_lock);
         if (new_data <= 0)
         {
@@ -2510,6 +2481,9 @@ int clock_gettime(int clk_id, struct timespec *tp)
           s[strlen(s) - 1] = '\0';
         if (processing_register_output)
         {
+          //
+          //  process register block
+          //
           e = strchr(s, ':');
           if (e)
           {
@@ -2730,6 +2704,14 @@ int clock_gettime(int clk_id, struct timespec *tp)
           p->io_response_size = p->io_response_data + strlen(s) + 3;
         }
         _panel_debug(p, DBG_RCV, "Receive Data Accumulated: '%s'", NULL, 0, s);
+        //
+        //  BJD - check for output from !cmd and not from registers
+        //
+        // if (sim_panel_escape_output != 0) printf("%s\n",s); // prints out after !cmd
+        if ((sim_panel_escape_output != 0) && (processing_register_output == 0) && (memcmp(s,"sim>",4) != 0)) 
+          printf("%s\n",s); // prints out after !cmd
+        // printf("%s",s); // prints out everything
+        //
         strcpy(p->io_response + p->io_response_data, s);
         p->io_response_data += strlen(s);
         strcpy(p->io_response + p->io_response_data, "\r\n");
@@ -2899,7 +2881,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
                 p->usecs_between_callbacks, register_repeat_units,
                 register_repeat_start, (int)buf_data, (int)buf_data, c);
         pthread_mutex_unlock(&p->io_lock);
-        c = strstr(repeat,
+        c = strstr(repeat,                // find first occuance of string b in str a
                    register_get_end);     /* remove register_done_echo string and */
         if (c)                            /* always true */
           strcpy(c, register_repeat_end); /* replace it with the
@@ -3078,7 +3060,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
     {
       if (completion_status)
       {
-        sprintf(&buf[len], "%s\r%s\r", command_status, command_done_echo);
+        sprintf(&buf[len], "%s\r%s\r", command_status, command_done_echo);  // send command, bracketed
         status_echo_len = strlen(&buf[len]);
       }
       pthread_mutex_lock(&p->io_lock);
@@ -3109,7 +3091,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
       { /* Sent OK? */
         char *tresponse = NULL;
 
-        while (p->io_waiting)
+        while (p->io_waiting)   // WAIT for i/o completion
           pthread_cond_wait(&p->io_done, &p->io_lock); /* Wait for completion */
         tresponse = (char *)_panel_malloc(p->io_response_data + 1);
         if (0 == memcmp(buf, p->io_response + strlen(sim_prompt), len))
