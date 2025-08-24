@@ -277,7 +277,7 @@ int panel_setup() /* called from main() */
   /* Create pseudo config file for a test */
   if ((f = fopen(sim_config, "w")))
   {
-    if (0)
+    if (debug)
     {
       /* BJD was conditional debug */
       fprintf(f, "set verbose\n");
