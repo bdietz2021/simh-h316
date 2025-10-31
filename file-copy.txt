@@ -1,5 +1,10 @@
+#   file-copy - 08/19/2025 copy files from newmini to h316
 #   file-copy - 07/21/2025 - copy files from newmini vsedit to H316
 #   bdietz@NewMini frontpanel % rsync FrontPanelH316.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
-rsync frontpanel/FrontPanelH316.c sim_frontpanel.c  sim_frontpanel.h bdietz@h316.local:/home/bdietz/gitrep/simh-h316
+rsync frontpanel/FrontPanelH316.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
+rsync sim_frontpanel.c  sim_frontpanel.h bdietz@h316.local:/home/bdietz/gitrep/simh-h316
 echo "done"
-echo "don't forget to mv FrontPanelH316.c to frontpanel/FrontPanelH316.c "
+# 
+# cd /home/bdietz/gitrep/simh-h316
+# make DEBUG=1 frontpanelh316
+# echo really done

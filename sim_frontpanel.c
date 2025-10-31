@@ -4,6 +4,11 @@
         10/28/2024 - eliminate all -H
         10/29/2024 - change char-to-int from base 16 to 8
         10/30/2024
+        08/24/2025 - BJD
+        09/05/2025 - BJD after bigtime edits
+
+        lpr -o "orientation-requested=4" (listing command)
+        reformat - Option+shift+f
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -327,6 +332,9 @@ int clock_gettime(int clk_id, struct timespec *tp)
       {
         switch ((unsigned char)buf[i])
         {
+        case 05:
+          sprintf(&obuf[strlen(obuf)], "_05_");
+          break;
         case TN_CR:
           sprintf(&obuf[strlen(obuf)], "_TN_CR_");
           break;
@@ -461,8 +469,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
     if (!panel)
       return;
     panel->Debug = fopen(debug_file, "w");
-    printf("BJD file open stdout\n");
-    fprintf(panel->Debug, "BJD file open\n");
+
     if (panel->Debug)
       setvbuf(panel->Debug, NULL, _IOFBF, 65536);
   }
@@ -471,7 +478,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
   {
     if (panel)
       panel->debug = debug_bits;
-    panel->debug = 0x3f; /* BJD */
+   //  panel->debug = 0x3f; /* BJD */
   }
 
   void sim_panel_flush_debug(PANEL *panel)
@@ -514,6 +521,9 @@ int clock_gettime(int clk_id, struct timespec *tp)
                                      const char *completion, const char *fmt,
                                      ...);
 
+//
+//  build register query string
+//
   static int _panel_register_query_string(PANEL *panel, char **buf,
                                           size_t *buf_size)
   {
@@ -896,6 +906,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
         fprintf(fOut, "set remote connections=%d\n", (int)device_panel_count + 1);
       fprintf(fOut, "set remote -u telnet=%s\n", hostport);
       fprintf(fOut, "set remote master\n");
+    //   fprintf(fOut, "debug h316.dbg\n");  // BJD 
       fprintf(fOut, "exit\n");
       fclose(fOut);
       fOut = NULL;
@@ -1520,7 +1531,10 @@ int clock_gettime(int clk_id, struct timespec *tp)
     return _panel_add_register(panel, name, device_name, 0, NULL, 1, 0, bits,
                                bit_width);
   }
-
+//
+//  this code sends register query to h316 simulator
+//  received thread decodes register values into panel structure
+//
   static int _panel_get_registers(PANEL *panel, int calledback,
                                   unsigned long long *simulation_time)
   {
@@ -2708,8 +2722,8 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
         //  BJD - check for output from !cmd and not from registers
         //
         // if (sim_panel_escape_output != 0) printf("%s\n",s); // prints out after !cmd
-        if ((sim_panel_escape_output != 0) && (processing_register_output == 0) && (memcmp(s,"sim>",4) != 0)) 
-          printf("%s\n",s); // prints out after !cmd
+        // if ((sim_panel_escape_output != 0) && (processing_register_output == 0) && (memcmp(s,"sim>",4) != 0)) 
+        //   printf("%s\n",s); // prints out after !cmd
         // printf("%s",s); // prints out everything
         //
         strcpy(p->io_response + p->io_response_data, s);
@@ -2766,15 +2780,15 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
           /* Let this state transition propagate to the interested thread(s) */
           /* before processing remaining buffered data */
           pthread_mutex_unlock(&p->io_lock);
-          msleep(100);
+          msleep(100);  // was 100
           pthread_mutex_lock(&p->io_lock);
         }
       }
-      if ((p->State == Run) && (!strcmp(buf, sim_prompt)))
+      if ((p->State == Run) && (!strcmp(buf, sim_prompt)))  // detect halt condition
       {
         _panel_debug(p, DBG_RSP, "State transitioning to Halt: io_wait_done: %d",
                      NULL, 0, io_wait_done);
-        p->State = Halt;
+        p->State = Halt;  //  here is where we are halting BJD DEBUG
         free(p->halt_reason);
         p->halt_reason = (char *)_panel_malloc(1 + strlen(p->io_response));
         if (p->halt_reason == NULL)
@@ -2851,8 +2865,10 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
       /* twice a second activities: */
       /*  1) update the query string if it has changed */
       /*     (only really happens at startup) */
-      /*  2) update register state by polling if the simulator is halted */
-      msleep(500);
+      /*  2) update register state by polling if the simulator is halted ??? */
+
+      msleep(5000);  // was 500 - this does delay register reads
+      
       pthread_mutex_lock(&p->io_lock);
       if (new_register)
       {
@@ -2886,31 +2902,35 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
         if (c)                            /* always true */
           strcpy(c, register_repeat_end); /* replace it with the
                                              register_repeat_end string */
-        if (_panel_sendf(p, &cmd_stat, NULL, "%s", repeat))
-        {
-          pthread_mutex_lock(&p->io_lock);
-          free(repeat);
-          break;
-        }
+        //  BJD DEBUG - temporarily remove code
+        // if (_panel_sendf(p, &cmd_stat, NULL, "%s", repeat)) // send command to get register values
+        // {
+        //   pthread_mutex_lock(&p->io_lock);
+        //   free(repeat);
+        //   break;
+        // }
         pthread_mutex_lock(&p->io_lock);
         free(repeat);
-      }
+      } // end of new register
+
       /* when halted, we directly poll the halted system to get updated */
       /* register state which may have changed due to panel activities */
       if (p->State == Halt)
       {
         pthread_mutex_unlock(&p->io_lock);
-        if (_panel_get_registers(p, 1, NULL))
-        {
-          pthread_mutex_lock(&p->io_lock);
-          break;
-        }
+        // if (_panel_get_registers(p, 1, NULL))
+        // {
+        //   pthread_mutex_lock(&p->io_lock);
+        //   break;
+        // }
         if (p->callback)
-          p->callback(p, p->simulation_time_base + p->simulation_time,
+          p->callback(p, p->simulation_time_base + p->simulation_time,  // execute callback routine for panel
                       p->callback_context);
         pthread_mutex_lock(&p->io_lock);
       }
     }
+   // end of forever loop
+
     pthread_mutex_unlock(&p->io_lock);
     /* stop any established repeating activity in the simulator */
     if (p->parent == NULL)
@@ -3063,7 +3083,7 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
         sprintf(&buf[len], "%s\r%s\r", command_status, command_done_echo);  // send command, bracketed
         status_echo_len = strlen(&buf[len]);
       }
-      pthread_mutex_lock(&p->io_lock);
+      pthread_mutex_lock(&p->io_lock);  // wait for send complete?
       p->completion_string = completion_string;
       if (p->io_response_data)
         _panel_debug(p, DBG_RCV, "Receive Data Discarded: ", p->io_response,
