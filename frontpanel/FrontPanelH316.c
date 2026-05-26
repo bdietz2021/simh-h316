@@ -38,6 +38,8 @@ Based on FrontPanelTest.c
 08/24/2025 - experimentation with command tests?
 08/27/2025 - this may be starting to work
 09/12/2025 - changes when sim is running
+10/31/2025 - rewrite part of main where simh is left running - test case
+02/25/2026 - resume testing - tweak long running program
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -212,7 +214,7 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
     // get_pos = 0; /* bjd */
     if (get_pos)
       printf(CSI "s"); /* Save Cursor Position */
-                       /*	printf (CSI "H");   /* Position to Top of Screen (1,1) */
+                       /*	printf (CSI "H");   // Position to Top of Screen (1,1) */
 
 #endif /* BJD_HAVE_NCURSES */
     printf("%s", buf1);
@@ -950,187 +952,116 @@ int main(int argc, char **argv) /********** main ************************** */
     printf("Error setting p to %06o: %s\n", addr100, sim_panel_get_error());
   }
 
-  usleep(1000000); // 
+  usleep(1000000); //
+  static char cmd[512];
 
   if (sim_panel_exec_run(panel)) // start execution
     goto Done;
 
-    // add delay
+  // add delay
 
-     usleep(1000000); // 
+  usleep(1000000); //
 
   sim_panel_debug(panel, "start long-running loop\n");
   sim_panel_flush_debug(panel);
   while (1)
-  { /*** start of long-running command/display loop ***/
-    static char cmd[512];
+  {
+        char cmd[512];
     const char *arg;
 
-    while (sim_panel_get_state(panel) == Halt)
-    {
-      sim_panel_debug(panel, "Halted - Getting registers...");
-      sim_panel_get_registers(panel, &simulation_time);
-      if (!was_halted)
-      {
-        const char *haltmsg = sim_panel_halt_text(panel);
-        const char *bpt;
-        unsigned int Bpt_PC;
-        usleep(1000000);
-        DisplayRegisters(panel, 0, 1);
-        if (*haltmsg)
-          printf("%s", haltmsg);
-        if ((bpt = strstr(haltmsg, "Breakpoint, PC: ")))
-        {
-          sscanf(bpt, "Breakpoint, PC: %X", &Bpt_PC);
-          for (i = 0; breakpoints[i].addr; i++)
-          {
-            if (Bpt_PC == breakpoints[i].addr)
-            {
-              printf("Breakpoint at: %08X %s\n", breakpoints[i].addr,
-                     breakpoints[i].desc);
-              break;
+    while (sim_panel_get_state (panel) == Halt) {
+        sim_panel_debug (panel, "Halted - Getting registers...");
+        sim_panel_get_registers (panel, &simulation_time);
+        if (!was_halted) {
+            const char *haltmsg = sim_panel_halt_text (panel);
+            const char *bpt;
+            unsigned int Bpt_PC;
+
+                   usleep (100000); // delay
+                   
+            DisplayRegisters (panel, 0, 1);
+            if (*haltmsg)
+                printf ("%s", haltmsg);
+            if ((bpt = strstr (haltmsg, "Breakpoint, PC: "))) {
+                sscanf (bpt, "Breakpoint, PC: %X", &Bpt_PC);
+                for (i=0; breakpoints[i].addr; i++) {
+                    if (Bpt_PC == breakpoints[i].addr) {
+                        printf ("Breakpoint at: %08X %s\n", breakpoints[i].addr, breakpoints[i].desc);
+                        break;
+                        }
+                    }
+                }
             }
-          }
+        was_halted = 1;
+        printf ("SIM> ");
+        if (!fgets (cmd, sizeof(cmd)-1, stdin))
+            break;
+        while (strlen(cmd) && isspace(cmd[strlen(cmd)-1]))
+            cmd[strlen(cmd)-1] = '\0';
+        DisplayRegisters (panel, 1, 1);
+        if (match_command ("BOOT", cmd, &arg)) {
+            if (sim_panel_exec_boot (panel, arg))
+                break;
+            }
+        else if (match_command ("BREAK ", cmd, &arg)) {
+            if (sim_panel_break_set (panel, arg))
+                printf("Error Setting Breakpoint '%s': %s\n", arg, sim_panel_get_error ());
+            }
+        else if (match_command ("NOBREAK ", cmd, &arg)) {
+            if (sim_panel_break_clear (panel, arg))
+                printf("Error Clearing Breakpoint '%s': %s\n", arg, sim_panel_get_error ());
+            }
+        else if (match_command ("STEP", cmd, NULL)) {
+            if (sim_panel_exec_step (panel))
+                break;
+            }
+        else if (match_command ("CONT", cmd, NULL)) {
+            if (sim_panel_exec_run (panel))
+                break;
+            }
+        else if (match_command ("EXAMINE ", cmd, &arg)) {
+            int value;
+
+            if (sim_panel_gen_examine (panel, arg, sizeof (value), &value))
+                printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error ());
+            else
+                printf("%s: %08X\n", arg, value);
+            }
+        else if (match_command ("HISTORY ", cmd, &arg)) {
+            char history[10240];
+            int count = atoi (arg);
+
+            history[sizeof (history) - 1] = '\0';
+            if (sim_panel_get_history (panel, count, sizeof (history) -1, history))
+                printf("Error retrieving instruction history: %s\n", sim_panel_get_error ());
+            else
+                printf("%s\n", history);
+            }
+        else if (match_command ("DEBUG ", cmd, &arg)) {
+            if (arg[0] == '-') {
+                if (sim_panel_device_debug_mode (panel, NULL, 1, arg))
+                    printf("Error setting debug mode: %s\n", sim_panel_get_error ());
+                }
+            else {
+                if (sim_panel_device_debug_mode (panel, arg, 1, NULL))
+                    printf("Error setting debug mode: %s\n", sim_panel_get_error ());
+                }
+            }
+        else if ((match_command ("EXIT", cmd, NULL)) || (match_command ("QUIT", cmd, NULL)))
+            goto Done;
+        else {
+            DisplayRegisters (panel, 0, 1);
+            printf ("Huh? %s\r\n", cmd);
+            }
         }
-      }
-      was_halted = 1;
-      printf(CSI "2K"); /* clear to EOL?   */
-      printf(CSI "J");  /* clear to EOL?   */
-
-      printf("SIM> ");                         // *** print command prompt on stdin
-      if (!fgets(cmd, sizeof(cmd) - 1, stdin)) // *** get command from stdin
-        break;
-      // cmd[0] = 0; //temp
-
-      while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
-        cmd[strlen(cmd) - 1] = '\0';
-      DisplayRegisters(panel, 1, 1);
-
-      if (kill_ctr++ > maxloop) //. xx
-      {
-        /******** enter debug ****** */
-        goto Done;
-        // int *nullptr = NULL;
-        //  *nullptr = 1;
-      }
-
-      int iii;
-      if (cmd[0] == '!')
-      { /* ! means pass cmd to simulator */
-        iii = strlen(cmd);
-        if (cmd[iii - 1] != '\r')
-        { /* make sure string ends in c/r */
-          cmd[iii] = '\r';
-          cmd[iii + 1] = 0;
-        }
-        sim_panel_escape(panel, 1, &cmd[1], strlen(cmd)); // print data, set option
-        break;
-      }
-      sim_panel_escape(panel, 0, &cmd[1], strlen(cmd)); // clear print option
-      //
-      if (match_command("GO", cmd, &arg))
-      {
-        if (sim_go(panel, cmd, arg)) /* BJD test command */
-          break;
-      }
-      else if (match_command("BOOT", cmd, &arg))
-      {
-        if (sim_panel_exec_boot(panel, arg))
-          break;
-      }
-      else if (match_command("BREAK ", cmd, &arg))
-      {
-        if (sim_panel_break_set(panel, arg))
-          printf("Error Setting Breakpoint '%s': %s\n", arg,
-                 sim_panel_get_error());
-      }
-      else if (match_command("NOBREAK ", cmd, &arg))
-      {
-        if (sim_panel_break_clear(panel, arg))
-          printf("Error Clearing Breakpoint '%s': %s\n", arg,
-                 sim_panel_get_error());
-      }
-      else if (match_command("STEP", cmd, NULL))
-      {
-        if (sim_panel_exec_step(panel))
-          break;
-      }
-      else if (match_command("CONT", cmd, NULL))
-      {
-        if (sim_panel_exec_run(panel))
-        {
-          break;
-        }
-        else
-        {
-          break;
-        }
-      }
-    else if (match_command("EXAMINE ", cmd, &arg))
-    {
-      int value;
-
-      if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
-        printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
-      else
-        printf("%s: %08o\n", arg, value); /* BJD */
-    }
-    else if (match_command("HISTORY ", cmd, &arg))
-    {
-      char history[10240];
-      int count = atoi(arg);
-
-      history[sizeof(history) - 1] = '\0';
-      if (sim_panel_get_history(panel, count, sizeof(history) - 1, history))
-        printf("Error retrieving instruction history: %s\n",
-               sim_panel_get_error());
-      else
-        printf("%s\n", history);
-    }
-    else if (match_command("DEBUG ", cmd, &arg))
-    {
-      if (arg[0] == '-')
-      {
-        if (sim_panel_device_debug_mode(panel, NULL, 1, arg))
-          printf("Error setting debug mode: %s\n", sim_panel_get_error());
-      }
-      else
-      {
-        /* BJD Debug */
-        /* if (sim_panel_device_debug_mode (panel, arg, 1, NULL)) */
-        if (sim_panel_device_debug_mode(panel, NULL, 1, NULL))
-          printf("Error setting debug mode: %s\n", sim_panel_get_error());
-      }
-    }
-    else if ((match_command("EXIT", cmd, NULL)) ||
-             (match_command("QUIT", cmd, NULL))) goto Done;
-    else
-    {
-      DisplayRegisters(panel, 0, 1);
-      printf("Huh? %s\r\n", cmd);
-    }
+    while (sim_panel_get_state (panel) == Run) {
   }
-  while (sim_panel_get_state(panel) == Run)
-  { /** simulator is running **/
-    usleep(1000000);
 
-    if (update_display) // was update_display
-    {
-      update_display = 0;
-      DisplayRegisters(panel, 0, 0);
-    }
-    was_halted = 0;
-    if (halt_cpu)
-    {
-      halt_cpu = 0;
-      sim_panel_exec_halt(panel);
-    }
-  } /** end of simulator running, get next operator command **/
-} /*** end of long-running command/display loop ***/
+}
+Done:
+  DisplayRegisters(panel, 0, 1);
+  sim_panel_destroy(panel); /* stop the h316 simulator */
 
-Done : DisplayRegisters(panel, 0, 1);
-sim_panel_destroy(panel); /* stop the h316 simulator */
-
-/* Get rid of pseudo config file created earlier */
-(void)remove(sim_config);
+  /* Get rid of pseudo config file created earlier */
+  (void)remove(sim_config);
 }

@@ -6,6 +6,7 @@
         10/30/2024
         08/24/2025 - BJD
         09/05/2025 - BJD after bigtime edits
+        03/08/2028 - BJD conditional to remove fork() #define START_H316
 
         lpr -o "orientation-requested=4" (listing command)
         reformat - Option+shift+f
@@ -983,6 +984,10 @@ int clock_gettime(int clk_id, struct timespec *tp)
         goto Error_Return;
       }
 #else
+#ifndef START_H316
+/*  if START_H316 is defined, then start h316 as usual */
+/*  if START_H316 is NOT defined, then start h316 manually */
+/*  as ./h316 h316parms - where h316 parms is the usual parm file */
     p->pidProcess = fork();
     if (p->pidProcess == 0)
     {
@@ -1004,6 +1009,7 @@ int clock_gettime(int clk_id, struct timespec *tp)
       sim_panel_set_error(NULL, "fork() Error: %s", strerror(errno));
       goto Error_Return;
     }
+    #endif
 #endif
       strcpy(p->hostport, hostport);
     }
@@ -2237,7 +2243,8 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
     sim_panel_escape_output = option; // expect output from simulator
    if (option != 0)  _panel_send(panel, buffer, len);
 
-  };
+  return(9);
+};
 
   /**
 

@@ -746,6 +746,8 @@ while (1) {
             const char *bpt;
             unsigned int Bpt_PC;
 
+                   usleep (100000); // delay
+                   
             DisplayRegisters (panel, 0, 1);
             if (*haltmsg)
                 printf ("%s", haltmsg);

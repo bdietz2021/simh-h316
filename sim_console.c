@@ -2090,31 +2090,7 @@ if (sim_rem_master_mode) {
         sim_rem_consoles[0].single_mode = FALSE;
         sim_cancel (rem_con_data_unit);
         sim_activate (rem_con_data_unit, -1);
-        stat = run_cm
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        d (RU_frame DEV_V_UF_31, "");
+        stat = run_cmd (RU_GO , "");
         if (stat != SCPE_TTMO) {
             stat_nomessage = stat & SCPE_NOMESSAGE;         /* extract possible message supression flag */
             stat = _sim_rem_message ("RUN", stat);

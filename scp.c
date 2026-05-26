@@ -11974,7 +11974,7 @@ do {
     else {
         sim_debug (SIM_DBG_EVENT, &sim_scp_dev, "Processing Event for %s\n", sim_uname (uptr));
         if (uptr->action != NULL)
-            reason = uptr->action (uptr);
+            reason = uptr->action (uptr);   /* BJD execute action */
         else
             reason = SCPE_OK;
         }

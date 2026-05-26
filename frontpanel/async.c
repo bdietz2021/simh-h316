@@ -48,6 +48,7 @@ int nchars;
 int write_to_async(int fd, int nchars,char* buff) {
 
 		if (nchars > 0) write(fd,buff,nchars);
+      return(0); 
 };
 
 int async_start() 
@@ -98,5 +99,6 @@ tcsetattr(fd,option,&serial_port_settings);
 pthread_create(&thread1, NULL, from_async, NULL);
 
 /*	 end */
+   return(0);
 };
 
