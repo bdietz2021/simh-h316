@@ -40,6 +40,12 @@ Based on FrontPanelTest.c
 09/12/2025 - changes when sim is running
 10/31/2025 - rewrite part of main where simh is left running - test case
 02/25/2026 - resume testing - tweak long running program
+05/26/2026 - after change to revert test command loop near 931 and GIT push
+06/04/2026 - uncomented atP near line 427
+06/06/2026 - changed "run" to start
+06/06/2026 - Changed test code to check display_update and display regs
+06/06/2026 - WORKS - displays updated H316 registers in real time on
+              hardware front panel. Celebrations. 
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -140,7 +146,7 @@ const char *sim_config = "H316-PANEL.ini";
 
 /* Registers visible on the Front Panel */
 
-static unsigned short int P, A, B, X, atP;
+static unsigned int P, A, B, X, atP;
 static unsigned int PCQ[32];
 
 int P_bits[16];
@@ -175,10 +181,10 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
 
   buf1[sizeof(buf1) - 1] = buf2[sizeof(buf2) - 1] = buf3[sizeof(buf3) - 1] =
       buf4[sizeof(buf4) - 1] = 0;
-  sprintf(buf1, "%4s P: %08o    @P: %08o\n", states[sim_panel_get_state(panel)],
+  sprintf(buf1, "%4s P: %06o    @P: %06o\n", states[sim_panel_get_state(panel)],
           P, atP);
   sprintf(buf2, "Instructions Executed: %lld\n", simulation_time);
-  sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X);
+  sprintf(buf3, "A:%06o  B:%06o  X:%06o  \n", A, B, X);
 #if defined(_WIN32)
   if (1)
   {
@@ -423,11 +429,12 @@ int panel_setup() /* called from main() */
     printf("Error adding register 'P': %s\n", sim_panel_get_error());
     goto Done;
   }
-  // if (sim_panel_add_register_indirect(panel, "P", NULL, sizeof(atP), &atP))
-  // {
-  //   printf("Error adding register indirect 'P': %s\n", sim_panel_get_error());
-  //   goto Done;
-  // }
+  // restire atP to be the instruction at the P register
+  if (sim_panel_add_register_indirect(panel, "P", NULL, sizeof(atP), &atP))
+  {
+    printf("Error adding register indirect 'P': %s\n", sim_panel_get_error());
+    goto Done;
+  }
   if (sim_panel_add_register(panel, "A", NULL, sizeof(A), &A))
   {
     printf("Error adding register 'A': %s\n", sim_panel_get_error());
@@ -481,9 +488,8 @@ int panel_setup() /* called from main() */
     goto Done;
   }
 #endif
-  int set_callback_us = 2000000; // 2 deconds
   if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL,
-                                              set_callback_us)) // was 200000
+                                              200000)) 
   {
     printf("Error setting automatic display callback: %s\n",
            sim_panel_get_error());
@@ -955,7 +961,8 @@ int main(int argc, char **argv) /********** main ************************** */
   usleep(1000000); //
   static char cmd[512];
 
-  if (sim_panel_exec_run(panel)) // start execution
+  // if (sim_panel_exec_run(panel)) // start execution
+  if (sim_panel_exec_start(panel)) // start execution
     goto Done;
 
   // add delay
@@ -1055,6 +1062,11 @@ int main(int argc, char **argv) /********** main ************************** */
             }
         }
     while (sim_panel_get_state (panel) == Run) {
+        usleep (100000);
+        if (update_display) {
+            update_display = 0;
+            DisplayRegisters(panel, 0, 0);
+            }
   }
 
 }

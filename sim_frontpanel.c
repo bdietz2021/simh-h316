@@ -7,6 +7,7 @@
         08/24/2025 - BJD
         09/05/2025 - BJD after bigtime edits
         03/08/2028 - BJD conditional to remove fork() #define START_H316
+        05/26/2026 - un-comment changes to "repeat" near 2912
 
         lpr -o "orientation-requested=4" (listing command)
         reformat - Option+shift+f
@@ -2515,7 +2516,7 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
             *e++ = '\0';
             if (!strcmp("Time", s))
             {
-              p->simulation_time = strtoull(e, NULL, 10);
+              p->simulation_time = strtoull(e, NULL, 10); // watch for bogus -13 time
               s = eol;
               while (isspace(0xFF & (*s)))
                 ++s;
@@ -2910,12 +2911,12 @@ int sim_panel_escape(PANEL *panel,int option,char *buffer, int len)
           strcpy(c, register_repeat_end); /* replace it with the
                                              register_repeat_end string */
         //  BJD DEBUG - temporarily remove code
-        // if (_panel_sendf(p, &cmd_stat, NULL, "%s", repeat)) // send command to get register values
-        // {
-        //   pthread_mutex_lock(&p->io_lock);
-        //   free(repeat);
-        //   break;
-        // }
+        if (_panel_sendf(p, &cmd_stat, NULL, "%s", repeat)) // send command to get register values
+        {
+          pthread_mutex_lock(&p->io_lock);
+          free(repeat);
+          break;
+        }
         pthread_mutex_lock(&p->io_lock);
         free(repeat);
       } // end of new register
