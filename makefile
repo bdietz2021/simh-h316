@@ -3025,3 +3025,10 @@ ${BIN}frontpanelh316${EXE} : frontpanel/FrontPanelH316.c sim_sock.c sim_frontpan
 	${MKDIRBIN}
 	${CC} frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
 
+paneltest : ${BIN}paneltest${EXE}
+
+${BIN}paneltest${EXE} : frontpanel/paneltest.c frontpanel/async.c 
+	#cmake:ignore-target
+	${MKDIRBIN}
+	${CC} frontpanel/paneltest.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
+
