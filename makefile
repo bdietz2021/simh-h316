@@ -3017,17 +3017,22 @@ ${BIN}frontpaneltest${EXE} : frontpanel/FrontPanelTest.c sim_sock.c sim_frontpan
 	${CC} frontpanel/FrontPanelTest.c sim_sock.c sim_frontpanel.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
 
 # Front Panel H316 test
-
 frontpanelh316 : ${BIN}frontpanelh316${EXE}
 
-${BIN}frontpanelh316${EXE} : frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c
+${BIN}frontpanelh316${EXE} : frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c frontpanel/async.c frontpanel/cJSON.c
 	#cmake:ignore-target
 	${MKDIRBIN}
-	${CC} frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
+	${CC} frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c frontpanel/cJSON.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
+frontpanelh316 : ${BIN}frontpanelh316${EXE}
+
+# ${BIN}frontpanelh316${EXE} : frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c frontpanel/async.c frontpanel/cJSON.c
+# 	#cmake:ignore-target
+# 	${MKDIRBIN}
+# 	${CC} frontpanel/FrontPanelH316.c sim_sock.c sim_frontpanel.c frontpanel/async.c frontpanel/cJSON.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
 
 paneltest : ${BIN}paneltest${EXE}
 
-${BIN}paneltest${EXE} : frontpanel/paneltest.c frontpanel/async.c 
+${BIN}paneltest${EXE} : frontpanel/paneltest.c 
 	#cmake:ignore-target
 	${MKDIRBIN}
 	${CC} frontpanel/paneltest.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}

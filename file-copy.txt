@@ -4,7 +4,8 @@
 rsync frontpanel/FrontPanelH316.c frontpanel/paneltest.c frontpanel/async.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
 rsync sim_frontpanel.c  sim_frontpanel.h sim_console.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316
 
-rsync sim_frontpanel.c  makefile bdietz@h316.local:/home/bdietz/gitrep/simh-h316
+rsync sim_frontpanel.c makefile bdietz@h316.local:/home/bdietz/gitrep/simh-h316
+rsync frontpanel/cJSON.h frontpanel/cJSON.c  makefile bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
 echo "done"
 # 
 # cd /home/bdietz/gitrep/simh-h316

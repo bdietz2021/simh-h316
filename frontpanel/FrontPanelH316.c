@@ -133,7 +133,8 @@ void my_printf(const char *fmt, ...)
 #endif /* BJD_HAVE_NCURSES */
 #endif
 
-#include "async.c" // BJD async library
+// #include "async.c" // BJD async library
+#include "async.c" 
 
 const char *sim_path =
 #if defined(_WIN32)
