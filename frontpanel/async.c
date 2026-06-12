@@ -1,8 +1,17 @@
+// async.c 06/10/2026 - frontpanelh316 i/o routines for h316 hardware front panel
+// This code opens an async connection via the USB to the connected custom hw
+// Part of Bryan Dietz's retirement project(s)
+// change variable portname if needed
+//
+// also, for now, decodes JSON messages from hw front panel
+//
 #include <stdio.h>  
 #include <fcntl.h>    /* file open flags and open() */
 #include <termios.h>
 #include <unistd.h>
 #include <pthread.h>
+
+#include "cJSON.h" // JSON utilities
 
 struct termios serial_port_settings;
 int option = 0;
@@ -19,16 +28,28 @@ int option = 0;
 
 int fd;	// file descriptor
 
+// JSON input data
+int front_panel_input;  // flag for data available
+int front_panel_char_count;
+char front_panel_buff[256];
+void check_for_JSON(char* ,int );
+void process_json(char* ,int );
+int status_reg(const char *const , char *);
+
 void* from_async(void* arg)
 {
 char buff[120];
 int nchars;
 
-/* read data */
+/* read data received from hw front panel */
 	while(1) {
 		nchars = read(fd,buff,1);
 		if (nchars < 0) break;
-		if (nchars > 0) write(1,buff,nchars);
+		if (nchars > 0) {
+        //  write(1,buff,nchars);  // echo data on console
+         check_for_JSON(buff,nchars);
+      }
+      // JSON processing
 	};
 	return(NULL);
 };
@@ -96,9 +117,90 @@ cfsetospeed(&serial_port_settings,B9600);
 option = TCSANOW;
 tcsetattr(fd,option,&serial_port_settings);
 
-pthread_create(&thread1, NULL, from_async, NULL);
+pthread_create(&thread1, NULL, from_async, NULL); // create thread to read from hw frontpanel
+front_panel_input = 0;  // set no input received (yet)
+front_panel_char_count = 0;   // nothing received yet
 
 /*	 end */
    return(0);
 };
 
+
+// JSON processing code
+//
+void check_for_JSON(char* inbuf,int n)
+{
+    if (inbuf[n-1] == '\n') {
+       write(1,front_panel_buff,front_panel_char_count);  // echo data on console
+       inbuf[front_panel_char_count] = 0;  // insure null termination
+       process_json(front_panel_buff,front_panel_char_count); // process accumulated chars
+       front_panel_char_count = 0;
+    } else {
+      front_panel_buff[front_panel_char_count++] = inbuf[0];
+    }
+};
+
+/** @brief process a json command enclosed in <>
+ * <{"name":"H316 Front Panel Status","A":668,"B":1024}> (test data)
+ */
+void process_json(char* inputx,int j)
+{
+  int temp;
+  char* start;  // start of JSON string
+  
+  start = strchr(inputx,'{'); // find start of JSON string
+  if (start == NULL) {
+    printf("inputx = ",inputx);
+    return;
+  }
+  temp = status_reg(start, (char *)"B_Run");
+  printf("received JSON %d\n",temp);
+  // if (temp >= 0)
+  // {
+  //   continue;
+  // };
+  //
+};
+
+/** @brief: process json command to set A register
+ *
+ */
+int status_reg(const char *const monitor, char *reg_name)
+{
+  const cJSON *a_ptr = NULL;
+  const cJSON *name = NULL;
+  int status = -1;
+
+  cJSON *monitor_json = cJSON_Parse(monitor);
+  if (monitor_json == NULL)
+  {
+    const char *error_ptr = cJSON_GetErrorPtr();
+    if (error_ptr != NULL)
+    {
+      fprintf(stderr, "Error before: %s\n", error_ptr);
+    }
+    status = -1;
+    goto end;
+  }
+
+  name = cJSON_GetObjectItemCaseSensitive(monitor_json, "name");
+  if (cJSON_IsString(name) && (name->valuestring != NULL))
+  {
+    printf("Checking monitor \"%s\"\n", name->valuestring);
+  }
+
+  a_ptr = cJSON_GetObjectItemCaseSensitive(monitor_json, reg_name);
+  if (cJSON_IsNumber(a_ptr))
+  {
+    status = a_ptr->valuedouble;
+    goto end;
+  }
+
+end:
+  cJSON_Delete(monitor_json);
+  // Serial.print("json values ");
+  // Serial.print(status);
+  // Serial.print(reg_name);
+  // Serial.println();
+  return status;
+};
