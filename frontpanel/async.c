@@ -13,6 +13,51 @@
 
 #include "cJSON.h" // JSON utilities
 
+//
+//  FIFO package
+//  in = next index for storing
+//  out = next index for retrieving
+//  in = out --> empty fifo
+struct fifo_block {
+  char name[16];  // name of register or similar
+  int value;
+};
+//
+struct fifo {
+  short in; 
+  short out; 
+  #define N_FIFO 16
+  struct fifo_block block[N_FIFO];
+};
+
+struct fifo fifo1; // fifo for msgs from async input thread
+//
+void fifo_init(struct fifo fwork){
+  fwork.in = fwork.out = 0;
+}
+int fifo_in(struct fifo fwork,char *nin,int vin)
+{
+  int i;
+  i = fwork.in;
+  fwork.block[i].value = vin;
+
+  if (++i >= N_FIFO) i = 0;  // check for wrap 
+  fwork.in = i; 
+  return (0);
+};
+int fifo_out(struct fifo fwork,char *nout,int *vout)
+{
+  int i;
+  if (fwork.in == fwork.out) return(0);
+  i = fwork.out;
+  *vout = fwork.block[i].value;
+
+  if (++i >= N_FIFO) i = 0;
+  fwork.out = i;
+  return(1);
+};
+
+
 struct termios serial_port_settings;
 int option = 0;
 
@@ -155,6 +200,7 @@ void process_json(char* inputx,int j)
   }
   temp = status_reg(start, (char *)"B_Run");
   printf("received JSON %d\n",temp);
+  fifo_in(fifo1,"B_Run",temp);
   // if (temp >= 0)
   // {
   //   continue;
@@ -204,3 +250,4 @@ end:
   // Serial.println();
   return status;
 };
+

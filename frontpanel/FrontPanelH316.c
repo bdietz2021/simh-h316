@@ -1063,11 +1063,14 @@ int main(int argc, char **argv) /********** main ************************** */
             }
         }
     while (sim_panel_get_state (panel) == Run) {
+      char xname[16];
+      int xval; // dummy parms
         usleep (100000);
         if (update_display) {
             update_display = 0;
             DisplayRegisters(panel, 0, 0);
             }
+        if(fifo_out(fifo1,xname,&xval) != 0) printf( "B_Run pulled\n");
   }
 
 }
