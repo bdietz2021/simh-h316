@@ -46,6 +46,8 @@ Based on FrontPanelTest.c
 06/06/2026 - Changed test code to check display_update and display regs
 06/06/2026 - WORKS - displays updated H316 registers in real time on
               hardware front panel. Celebrations. 
+06/24/2026 - update register display code
+06/26/2026 - minor updates before adding option processing
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -134,7 +136,8 @@ void my_printf(const char *fmt, ...)
 #endif
 
 // #include "async.c" // BJD async library
-#include "async.c" 
+#include "async.c"
+#include "FrontPanelH316.h"
 
 const char *sim_path =
 #if defined(_WIN32)
@@ -158,6 +161,12 @@ unsigned long long simulation_time;
 int update_display = 1;
 
 int debug = 0;
+struct options {
+  int option1;
+  int option2;
+  int debug;
+};
+struct options debug_opt;  // global flags for debugging
 
 static void DisplayCallback(PANEL *panel, unsigned long long sim_time,
                             void *context)
@@ -171,14 +180,6 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
   char buf1[100], buf2[100], buf3[100], buf4[100];
   char jsonbuf[256]; // json
   static const char *states[] = {"Halt", "Run "};
-
-  static int kill_ctr = 0; // BJD DEBUG
-  // if (kill_ctr++ > 25) {
-  //   /******** enter debug ****** */
-  // //  goto Done;
-  //   int *nullptr = NULL;
-  //    *nullptr = 1;
-  // }
 
   buf1[sizeof(buf1) - 1] = buf2[sizeof(buf2) - 1] = buf3[sizeof(buf3) - 1] =
       buf4[sizeof(buf4) - 1] = 0;
@@ -220,34 +221,41 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
     /* this is the real code, after all conditional compilation */
     // get_pos = 0; /* bjd */
     if (get_pos)
-      printf(CSI "s"); /* Save Cursor Position */
+    printf(CSI "0J"); /* erase to end of screen */
+    printf(CSI "H"); /* Save Cursor Position (was s)*/
                        /*	printf (CSI "H");   // Position to Top of Screen (1,1) */
 
 #endif /* BJD_HAVE_NCURSES */
     printf("%s", buf1);
     printf("%s", buf2);
     printf("%s", buf3);
-    /*	send message to H316 front panel via async port */
-    //  8/15/2025 - bug in H316 FW doesn't accept "RUN"
-    /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
-    /* compose JSON-formatted register contents message */
-    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
-    // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Run\":%s}>", A, B, X, P,
-    //   states[sim_panel_get_state(panel)]);
-    write_to_async(fd, strlen(jsonbuf), jsonbuf);
+    send_json_regs(jsonbuf);
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
+
       wmove(stdscr, row, col); /* Restore Cursor Position */
     wrefresh(stdscr);
 #else
     if (set_pos)
-      printf(CSI "s"); /* Restore Cursor Position */
+      printf(CSI "u"); /* Restore Cursor Position (was s)*/
     printf("\r\n");
 #endif /* BJD_HAVE_NCURSES */
   }
 #endif
 }
 
+void send_json_regs(char jsonbuf[256])
+{
+  /*	send message to H316 front panel via async port */
+  //  8/15/2025 - bug in H316 FW doesn't accept "RUN"
+  /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
+  /* compose JSON-formatted register contents message */
+  sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+  // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+  // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Run\":%s}>", A, B, X, P,
+  //   states[sim_panel_get_state(panel)]);
+  write_to_async(fd, strlen(jsonbuf), jsonbuf);
+}
 static void CleanupDisplay(void)
 {
 #if (!defined(_WIN32)) && defined(BJD_HAVE_NCURSES)
@@ -821,6 +829,7 @@ int main(int argc, char **argv) /********** main ************************** */
 {
   static int kill_ctr = 0;  // BJD DEBUG
   static int maxloop = 500; // don't let this run forever
+  char jsonbuf[512]; //     send_json_regs(jsonbuf);
 
   async_start(); // start thread to read USB connection to H316 hardware frontpanel FW
 
@@ -1068,9 +1077,17 @@ int main(int argc, char **argv) /********** main ************************** */
         usleep (100000);
         if (update_display) {
             update_display = 0;
-            DisplayRegisters(panel, 0, 0);
+           // DisplayRegisters(panel, 1,1);
+               send_json_regs(jsonbuf);
             }
-        if(fifo_out(fifo1,xname,&xval) != 0) printf( "B_Run pulled\n");
+        if(fifo_out(&fifo1,xname,&xval) != 0) { // take action when button is pushed
+          printf( "B_Run button push removed from fifo\n");
+          if (sim_panel_exec_halt(panel))
+           {
+             printf("Error halting simulator execution: %s\n", sim_panel_get_error());
+            goto Done;
+           }
+        }
   }
 
 }

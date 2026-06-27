@@ -1,11 +1,10 @@
+#   file-copy - 06/26/2026 - add .h file
 #   file-copy - 08/19/2025 copy files from newmini to h316
 #   file-copy - 07/21/2025 - copy files from newmini vsedit to H316
 #   bdietz@NewMini frontpanel % rsync FrontPanelH316.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
-rsync frontpanel/FrontPanelH316.c frontpanel/paneltest.c frontpanel/async.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
+rsync frontpanel/FrontPanelH316.{c,h} frontpanel/paneltest.c frontpanel/async.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
 rsync sim_frontpanel.c  sim_frontpanel.h sim_console.c bdietz@h316.local:/home/bdietz/gitrep/simh-h316
 
-rsync sim_frontpanel.c makefile bdietz@h316.local:/home/bdietz/gitrep/simh-h316
-rsync frontpanel/cJSON.h frontpanel/cJSON.c  makefile bdietz@h316.local:/home/bdietz/gitrep/simh-h316/frontpanel
 echo "done"
 # 
 # cd /home/bdietz/gitrep/simh-h316

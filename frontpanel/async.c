@@ -5,6 +5,8 @@
 //
 // also, for now, decodes JSON messages from hw front panel
 //
+//  tweak to add \name
+//
 #include <stdio.h>  
 #include <fcntl.h>    /* file open flags and open() */
 #include <termios.h>
@@ -32,31 +34,37 @@ struct fifo {
 
 struct fifo fifo1; // fifo for msgs from async input thread
 //
-void fifo_init(struct fifo fwork){
-  fwork.in = fwork.out = 0;
+void fifo_init(struct fifo *fwork){
+  fwork->in = fwork->out = 0;
 }
-int fifo_in(struct fifo fwork,char *nin,int vin)
+int fifo_in(struct fifo *fwork,char *nin,int vin)
 {
   int i;
-  i = fwork.in;
-  fwork.block[i].value = vin;
+  i = fwork->in;
+  fwork->block[i].value = vin;
 
   if (++i >= N_FIFO) i = 0;  // check for wrap 
-  fwork.in = i; 
+  fwork->in = i; 
   return (0);
 };
-int fifo_out(struct fifo fwork,char *nout,int *vout)
+int fifo_out(struct fifo *fwork,char *nout,int *vout)
 {
   int i;
-  if (fwork.in == fwork.out) return(0);
-  i = fwork.out;
-  *vout = fwork.block[i].value;
+  if (fwork->in == fwork->out) return(0);
+  i = fwork->out;
+  *vout = fwork->block[i].value;
 
   if (++i >= N_FIFO) i = 0;
-  fwork.out = i;
+  fwork->out = i;
   return(1);
 };
-
+int fifo_query(struct fifo *fwork)
+{
+  int i;
+  i = fwork->in - fwork->out;
+  if (i<0) i = -i;
+  return(i);
+}
 
 struct termios serial_port_settings;
 int option = 0;
@@ -177,7 +185,8 @@ void check_for_JSON(char* inbuf,int n)
 {
     if (inbuf[n-1] == '\n') {
        write(1,front_panel_buff,front_panel_char_count);  // echo data on console
-       inbuf[front_panel_char_count] = 0;  // insure null termination
+       write(1,"\n",1);
+       front_panel_buff[front_panel_char_count+1] = 0;  // insure null termination
        process_json(front_panel_buff,front_panel_char_count); // process accumulated chars
        front_panel_char_count = 0;
     } else {
@@ -192,15 +201,19 @@ void process_json(char* inputx,int j)
 {
   int temp;
   char* start;  // start of JSON string
+
+  if (front_panel_char_count < 2) return; // checkk for short input
   
   start = strchr(inputx,'{'); // find start of JSON string
   if (start == NULL) {
-    printf("inputx = ",inputx);
+    printf("inputx = %s\n",inputx);
     return;
   }
-  temp = status_reg(start, (char *)"B_Run");
+  temp = status_reg(start, (char *)"MA/SI/RUN");  // look for run button pushed
+  if (temp >= 0) {
   printf("received JSON %d\n",temp);
-  fifo_in(fifo1,"B_Run",temp);
+  if (fifo_query(&fifo1) == 0)  fifo_in(&fifo1,"B_Run",temp); // enforce one at a time for now
+}
   // if (temp >= 0)
   // {
   //   continue;
