@@ -254,7 +254,7 @@ void send_json_regs(char jsonbuf[256])
   // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
   // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Run\":%s}>", A, B, X, P,
   //   states[sim_panel_get_state(panel)]);
-  write_to_async(fd, strlen(jsonbuf), jsonbuf);
+  write_to_async(strlen(jsonbuf), jsonbuf);
 }
 static void CleanupDisplay(void)
 {
@@ -740,7 +740,7 @@ int sim_go(PANEL *panel, const char *string, const char *device) /**************
   char string2[2];
   int addr;
   char *go;
-  int p_value; // set this to P
+  int16_t p_value; // set this to P
   char *valuex;
   char *stringtext; // points to command
 
@@ -759,6 +759,7 @@ int sim_go(PANEL *panel, const char *string, const char *device) /**************
   sim_panel_debug(panel, "GO command\n");
   sim_panel_flush_debug(panel);
 
+ // if (sim_panel_exec_start(panel))
   if (sim_panel_exec_run(panel))
   {
     printf("Error starting execution (GO command)\n");
@@ -1032,6 +1033,10 @@ int main(int argc, char **argv) /********** main ************************** */
             if (sim_panel_exec_step (panel))
                 break;
             }
+        else if (match_command ("GO", cmd, &arg)) { /* go p 33000 */
+            if (sim_go(panel,arg, NULL))
+                break;
+            }
         else if (match_command ("CONT", cmd, NULL)) {
             if (sim_panel_exec_run (panel))
                 break;
@@ -1081,7 +1086,7 @@ int main(int argc, char **argv) /********** main ************************** */
                send_json_regs(jsonbuf);
             }
         if(fifo_out(&fifo1,xname,&xval) != 0) { // take action when button is pushed
-          printf( "B_Run button push removed from fifo\n");
+          printf( "Halt push removed from fifo\n");
           if (sim_panel_exec_halt(panel))
            {
              printf("Error halting simulator execution: %s\n", sim_panel_get_error());

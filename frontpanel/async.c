@@ -8,6 +8,7 @@
 //  tweak to add \name
 //
 #include <stdio.h>  
+#include <string.h>
 #include <fcntl.h>    /* file open flags and open() */
 #include <termios.h>
 #include <unistd.h>
@@ -33,6 +34,15 @@ struct fifo {
 };
 
 struct fifo fifo1; // fifo for msgs from async input thread
+
+struct button_type {
+  int button_code;
+  char button_name[16];
+};
+struct button_type button_tbl[] = {
+   1, "MA/SI/RUN",
+   2, "junk"
+};
 //
 void fifo_init(struct fifo *fwork){
   fwork->in = fwork->out = 0;
@@ -107,7 +117,7 @@ int nchars;
 	return(NULL);
 };
 
-int to_async(int fd)
+int to_async()
 {
 char buff[120];
 int nchars;
@@ -119,7 +129,7 @@ int nchars;
 	return(0);
 }
 
-int write_to_async(int fd, int nchars,char* buff) {
+int write_to_async(int nchars,char* buff) {
 
 		if (nchars > 0) write(fd,buff,nchars);
       return(0); 

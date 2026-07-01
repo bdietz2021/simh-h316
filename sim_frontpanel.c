@@ -992,6 +992,9 @@ int clock_gettime(int clk_id, struct timespec *tp)
     p->pidProcess = fork();
     if (p->pidProcess == 0)
     {
+      errno = 0;
+      if ((nice(5) != 0) && (errno != 0)) printf("Fork/Nice Error - errno = %d\n",errno);  // try to reduce priority of simulator
+      
       close(0);
       close(1);
       close(2); /* make sure not to pass the open standard handles */

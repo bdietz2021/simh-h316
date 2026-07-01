@@ -1,0 +1,440 @@
+ 1091  clang-format f1.c > f13.c
+ 1092  clang-format f2.c > f23.c
+ 1093  diff f13.c f23.c
+ 1094  diff f13.c f23.c | wc
+ 1095  diff f13.c f23.c | more
+ 1096  diff f13.c f23.c > output
+
+bdietz@h316:~/gitrep/simh-h316/BIN $ !gdb
+gdb --args frontpanelh316 -d
+GNU gdb (Debian 13.1-3) 13.1
+Copyright (C) 2023 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "aarch64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from frontpanelh316...
+(gdb) run
+Starting program: /home/bdietz/gitrep/simh-h316/BIN/frontpanelh316 -d
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/aarch64-linux-gnu/libthread_db.so.1".
+Connection to Port /dev/ttyACM0  Opened fd = 3 
+[New Thread 0x7ff7dff180 (LWP 60302)]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+^C to Halt, Commands: BOOT, CONT, EXIT, BREAK, NOBREAK, EXAMINE, HISTORY
+[Detaching after fork from child process 60303]
+[New Thread 0x7ff75ef180 (LWP 60319)]
+[New Thread 0x7ff6ddf180 (LWP 60320)]
+[New Thread 0x7ff65cf180 (LWP 60347)]
+Halt P: 00033025    @P: 00000000
+Instructions Executed: 0
+A:00000000  B:00000000  X:00000000  
+
+deposit instruction 100 = aoa 
+deposit instruction 101 = sze 
+deposit instruction 102 = jmp 100 
+deposit instruction 103 = irs 0 
+deposit instruction 104 = jmp 100 
+deposit instruction 105 = jmp 100 
+<string> {"A":0,"B":0,"M-reg":0,"P/Y":13845}
+
+Halt P: 00033025    @P: 00000000
+Instructions Executed: 0
+A:00000000  B:00000000  X:00000000  
+
+<string> {"A":0,"B":0,"M-reg":0,"P/Y":13845}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: 0
+A:00000014  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00102 (JMP 100)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":12,"B":0,"M-reg":0,"P/Y":66}
+
+cont
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -4
+A:00000014  B:00000000  X:00000000  
+
+<string> {"A":12,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -4
+A:00000014  B:00000000  X:00000000  
+
+<string> {"A":12,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: 0
+A:00000016  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00102 (JMP 100)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":14,"B":0,"M-reg":0,"P/Y":66}
+
+cont
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -6
+A:00000016  B:00000000  X:00000000  
+
+<string> {"A":14,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -6
+A:00000016  B:00000000  X:00000000  
+
+<string> {"A":14,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000101    @P: 00000000
+Instructions Executed: -2
+A:00000021  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00101 (SZE)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":17,"B":0,"M-reg":0,"P/Y":65}
+
+cont
+Halt P: 00000101    @P: 00000000
+Instructions Executed: -2
+A:00000021  B:00000000  X:00000000  
+
+<string> {"A":17,"B":0,"M-reg":0,"P/Y":65}
+
+Halt P: 00000101    @P: 00000000
+Instructions Executed: -2
+A:00000021  B:00000000  X:00000000  
+
+<string> {"A":17,"B":0,"M-reg":0,"P/Y":65}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: 0
+A:00000022  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00102 (JMP 100)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":18,"B":0,"M-reg":0,"P/Y":66}
+
+cont
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -2
+A:00000022  B:00000000  X:00000000  
+
+<string> {"A":18,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -2
+A:00000022  B:00000000  X:00000000  
+
+<string> {"A":18,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000100    @P: 00000000
+Instructions Executed: 0
+A:00000023  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00100 (AOA)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":19,"B":0,"M-reg":0,"P/Y":64}
+
+cont
+Halt P: 00000100    @P: 00000000
+Instructions Executed: -2
+A:00000023  B:00000000  X:00000000  
+
+<string> {"A":19,"B":0,"M-reg":0,"P/Y":64}
+
+Halt P: 00000100    @P: 00000000
+Instructions Executed: -2
+A:00000023  B:00000000  X:00000000  
+
+<string> {"A":19,"B":0,"M-reg":0,"P/Y":64}
+
+Halt P: 00000101    @P: 00000000
+Instructions Executed: 0
+A:00000025  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00101 (SZE)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":21,"B":0,"M-reg":0,"P/Y":65}
+
+cont
+Halt P: 00000101    @P: 00000000
+Instructions Executed: 0
+A:00000025  B:00000000  X:00000000  
+
+<string> {"A":21,"B":0,"M-reg":0,"P/Y":65}
+
+Halt P: 00000101    @P: 00000000
+Instructions Executed: -2
+A:00000025  B:00000000  X:00000000  
+
+<string> {"A":21,"B":0,"M-reg":0,"P/Y":65}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: 0
+A:00000026  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00102 (JMP 100)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":22,"B":0,"M-reg":0,"P/Y":66}
+
+cont
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -2
+A:00000026  B:00000000  X:00000000  
+
+<string> {"A":22,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000102    @P: 00000000
+Instructions Executed: -2
+A:00000026  B:00000000  X:00000000  
+
+<string> {"A":22,"B":0,"M-reg":0,"P/Y":66}
+
+Halt P: 00000100    @P: 00000000
+Instructions Executed: 0
+A:00000027  B:00000000  X:00000000  
+
+
+Simulation stopped, P: 00100 (AOA)
+%SIM-INFO: Running with Buffered Console
+SIM> <string> {"A":23,"B":0,"M-reg":0,"P/Y":64}
+
+quit
+Halt P: 00000100    @P: 00000000
+Instructions Executed: -4
+A:00000027  B:00000000  X:00000000  
+
+Halt P: 00000100    @P: 00000000
+Instructions Executed: -4
+A:00000027  B:00000000  X:00000000  
+
+<string> {"A":23,"B":0,"M-reg":0,"P/Y":64}
+
+<string> {"A":23,"B":0,"M-reg":0,"P/Y":64}
+
+[Thread 0x7ff65cf180 (LWP 60347) exited]
+[Thread 0x7ff75ef180 (LWP 60319) exited]
+[Thread 0x7ff6ddf180 (LWP 60320) exited]
+[Thread 0x7ff7ff6f00 (LWP 60300) exited]
+[Thread 0x7ff7dff180 (LWP 60302) exited]
+[New process 60300]
+[Inferior 1 (process 60300) exited normally]
+(gdb) quit
+bdietz@h316:~/gitrep/simh-h316/BIN $ ls --ltr
+ls: unrecognized option '--ltr'
+Try 'ls --help' for more information.
+bdietz@h316:~/gitrep/simh-h316/BIN $ ls -ltr
+
+----------gdb notes from h316 run standalone --
+
+bdietz@h316:~/gitrep/simh-h316/BIN $ gdb h316
+GNU gdb (Debian 13.1-3) 13.1
+Copyright (C) 2023 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "aarch64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from h316...
+(gdb) list h316_cpu.c:554
+549	
+550	/* Memory reference instructions */
+551	
+552	switch (I_GETOP (MB)) {                                 /* case on <1:6> */
+553	
+554	    case 001: case 021: case 041: case 061:             /* JMP */
+555	        if ((reason = Ea (MB, &Y)))                     /* eff addr */
+556	            break;
+557	        PCQ_ENTRY;                                      /* save PC */
+558	        PC = NEWA (PC, Y);                              /* set new PC */
+(gdb) b 554
+Breakpoint 1 at 0x198fc: file ./H316/h316_cpu.c, line 555.
+(gdb) run
+Starting program: /home/bdietz/gitrep/simh-h316/BIN/h316 
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/aarch64-linux-gnu/libthread_db.so.1".
+
+H316 simulator Open SIMH V4.1-0 Current        git commit id: a959d4da
+[Detaching after vfork from child process 71262]
+[Detaching after vfork from child process 71264]
+[Detaching after vfork from child process 71266]
+[Detaching after vfork from child process 71269]
+[Detaching after vfork from child process 71270]
+[Detaching after vfork from child process 71272]
+[Detaching after vfork from child process 71273]
+sim> restore restart
+sim> go 33000
+%SIM-INFO: SIGINT will be delivered to your debugger when the ^F character is entered
+
+Breakpoint 1, sim_instr () at ./H316/h316_cpu.c:555
+555	        if ((reason = Ea (MB, &Y)))                     /* eff addr */
+(gdb) bt
+#0  sim_instr () at ./H316/h316_cpu.c:555
+#1  0x00000055555939dc in run_cmd (flag=1, cptr=0x7fffff5db0 "") at ./scp.c:9349
+#2  0x000000555557ccec in process_stdin_commands (stat=0, argv=0x55556d32a0, do_called=0) at ./scp.c:3053
+#3  0x000000555557c794 in main (argc=1, argv=0x55556d32a0) at ./scp.c:2975
+(gdb) print *cptr
+No symbol "cptr" in current context.
+(gdb) info locals
+AR = 0
+BR = 8192
+MB = 34687
+Y = 14219
+t1 = -50224
+t2 = 85
+t3 = 1433208848
+skip = 1433209048
+dev = 85
+ut = 85
+iack = 0
+reason = 0
+(gdb) down
+Bottom (innermost) frame selected; you cannot go down.
+(gdb) up
+#1  0x00000055555939dc in run_cmd (flag=1, cptr=0x7fffff5db0 "") at ./scp.c:9349
+9349	        r = sim_instr();
+(gdb) print *cptr
+$1 = 0 '\000'
+(gdb) info locals
+addrs = 0x0
+gbuf = "33000", '\000' <repeats 4218 times>
+tptr = 0x7fffff3c45 ""
+i = 21
+j = 1
+sim_next = 0
+unitno = 127
+new_pcv = 13824
+orig_pcv = 13845
+r = 0
+dptr = 0x0
+uptr = 0x5555678898 <hi4_unit>
+(gdb) print *uptr
+$2 = {next = 0x0, action = 0x5555576d28 <hi_rx_service>, filename = 0x0, fileref = 0x0, filebuf = 0x0, filebuf2 = 0x0, hwmark = 0, time = 0, flags = 1, dynflags = 0, capac = 0, pos = 0, io_flush = 0x0, iostarttime = 0, 
+  buf = 0, wait = 1000, u3 = 4, u4 = 0, u5 = 0, u6 = 0, up7 = 0x0, up8 = 0x0, us9 = 0, us10 = 0, disk_type = 0, tmxr = 0x0, recsize = 0, tape_eom = 0, cancel = 0x0, usecs_remaining = 0, uname = 0x0, dptr = 0x0, dctrl = 0}
+(gdb) up
+#2  0x000000555557ccec in process_stdin_commands (stat=0, argv=0x55556d32a0, do_called=0) at ./scp.c:3053
+3053	        stat = cmdp->action (cmdp->arg, cptr);          /* if found, exec */
+(gdb) info locals
+cbuf = "go 33000\000\000start", '\000' <repeats 337 times>...
+gbuf = "GO\000TORE\000\320M\377\377\177\000\000\000\214\376\331\367\177\000\000\000\320M\377\377\177\000\000\0000N\377\377\177\000\000\0000N\377\377\177\000\000\000\000N\377\377\177\000\000\000\320\377\377\377\200\377\377\377\340\300mUU\000\000\000\023\000\000\000\000\000\000\000COMM\001\000\000\000", '%' <repeats 16 times>, "e: %s\000\000\000\n%s\000\000\000\000\000\377\377\377\377", '\000' <repeats 15 times>, "\377\000\377\377\377\000\377\000\377\377\377\377\377\000\360\360\377\360\360\377\377", '\000' <repeats 13 times>, "\300\314\314\000\000\000\000\000\000\000\000 Debian 1:6.12.3"...
+cptr = 0x7fffff5dab "33000"
+stat_nomessage = 0
+cmdp = 0x5555680f08 <cmd_table+336>
+(gdb) bt
+#0  sim_instr () at ./H316/h316_cpu.c:555
+#1  0x00000055555939dc in run_cmd (flag=1, cptr=0x7fffff5db0 "") at ./scp.c:9349
+#2  0x000000555557ccec in process_stdin_commands (stat=0, argv=0x55556d32a0, do_called=0) at ./scp.c:3053
+#3  0x000000555557c794 in main (argc=1, argv=0x55556d32a0) at ./scp.c:2975
+(gdb) n
+557	        PCQ_ENTRY;                                      /* save PC */
+(gdb) n
+558	        PC = NEWA (PC, Y);                              /* set new PC */
+(gdb) n
+559	        if (extoff_pending)                             /* cond ext off */
+(gdb) cont
+Continuing.
+
+Breakpoint 1, sim_instr () at ./H316/h316_cpu.c:555
+555	        if ((reason = Ea (MB, &Y)))                     /* eff addr */
+(gdb) bt
+#0  sim_instr () at ./H316/h316_cpu.c:555
+#1  0x00000055555939dc in run_cmd (flag=1, cptr=0x7fffff5db0 "") at ./scp.c:9349
+#2  0x000000555557ccec in process_stdin_commands (stat=0, argv=0x55556d32a0, do_called=0) at ./scp.c:3053
+#3  0x000000555557c794 in main (argc=1, argv=0x55556d32a0) at ./scp.c:2975
+(gdb) info locals
+AR = 0
+BR = 8192
+MB = 34439
+Y = 14990
+t1 = -50224
+t2 = 85
+t3 = 1433208848
+skip = 1
+dev = 85
+ut = 85
+iack = 0
+reason = 0
+(gdb) print *Y
+Cannot access memory at address 0x3a8e
+(gdb) print *MB
+Cannot access memory at address 0x8687
+(gdb) print M
+$3 = {65535, 4143, 12289, 45569, 1027, 33312, 1027, 4096, 45569, 1032, 17208, 45057, 1035, 36864, 10240, 32800, 1032, 11, 10262, 1031, 33813, 14755, 0 <repeats 41 times>, 8192, 0 <repeats 13760 times>, 9087, 41944, 43993, 
+  9014, 41946, 2792, 5073, 9014, 2642, 5063, 10920, 16426, 5072, 16428, 4761, 5074, 3918, 37851, 49184, 11944, 37849, 45572, 1557, 4918, 30249, 52188, 49360, 10038, 32768, 1587, 10240, 1561, 2870, 10231, 10232, 1578, 
+  1578, 16445, 3026, 16957, 1551, 65497, 10230, 10229, 34781, 34781, 16443, 3024, 16955, 49216, 1548, 6134, 32769, 41950, 52191, 63456, 33024, 47073, 4096, 35801, 17408, 32800, 1601, 35803, 4690, 2870, 5071, 16427, 37850, 
+  8912, 2621, 41950, 1544, 2686, 4758, 9014, 41946, 6806, 3918, 4690, 41945, 1603, 13830, 9087, 2642, 6888, 5076, 2792, 1610, 43994, 32800, 1612, 9014, 1610, 32800, 1634, 9014, 5073, 9115, 32256, 1546, 2819, 5785, 4761, 
+  9014, 49184, 1545, 3027, 38482, 4049, 38482, 30290, 41954, 9159, 1643, 35410, 4049, 30675, 41954, 9159, 11219, 1651, 9014, 3023, 16703, 35410, 32769, 9115, 1614, 34781, 3025, 33024, 3027, 5073, 2720, 1684, 30529, 2699, 
+  1684, 1676, 35410, 38867, 11219, 1688, 30529, 32768, 30269, 2675, 4758, 13977, 32769, 6099, 4049, 0, 1694, 41946, 41945...}
+(gdb) print M[Y]
+$4 = 34439
+(gdb) print addr
+No symbol "addr" in current context.
+(gdb) cont
+Continuing.
+
+Breakpoint 1, sim_instr () at ./H316/h316_cpu.c:555
+555	        if ((reason = Ea (MB, &Y)))                     /* eff addr */
+(gdb) disable
+(gdb) cont
+Continuing.
+
+
+$
+
+ 33007 JST  33466 
+ 33010 LDA  33122 
+ 33011 STA  33707 
+ 33012 IRS  33250 
+
+

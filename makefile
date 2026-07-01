@@ -3035,5 +3035,5 @@ paneltest : ${BIN}paneltest${EXE}
 ${BIN}paneltest${EXE} : frontpanel/paneltest.c 
 	#cmake:ignore-target
 	${MKDIRBIN}
-	${CC} frontpanel/paneltest.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
+	${CC} frontpanel/paneltest.c frontpanel/async.c frontpanel/cJSON.c ${CC_OUTSPEC} ${LDFLAGS} ${OS_CURSES_DEFS}
 
