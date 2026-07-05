@@ -221,12 +221,13 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
     /* this is the real code, after all conditional compilation */
     // get_pos = 0; /* bjd */
     if (get_pos)
-    printf(CSI "0J"); /* erase to end of screen */
     printf(CSI "H"); /* Save Cursor Position (was s)*/
                        /*	printf (CSI "H");   // Position to Top of Screen (1,1) */
+    printf(CSI "0J");   /* erase to end of screen */
+    /*    printf("\f");  /* erase to end of screen */
 
 #endif /* BJD_HAVE_NCURSES */
-    printf("%s", buf1);
+    printf("\f%s", buf1);
     printf("%s", buf2);
     printf("%s", buf3);
     send_json_regs(jsonbuf);
@@ -237,7 +238,7 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
     wrefresh(stdscr);
 #else
     if (set_pos)
-      printf(CSI "u"); /* Restore Cursor Position (was s)*/
+    /* printf(CSI "u");  Restore Cursor Position (was s)*/
     printf("\r\n");
 #endif /* BJD_HAVE_NCURSES */
   }
@@ -833,7 +834,7 @@ int main(int argc, char **argv) /********** main ************************** */
   char jsonbuf[512]; //     send_json_regs(jsonbuf);
 
   async_start(); // start thread to read USB connection to H316 hardware frontpanel FW
-
+  event_input_start();  // start thread for input from h316 hw buttons
   int was_halted = 1, i; // was 1
 
   if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) ||
@@ -986,6 +987,7 @@ int main(int argc, char **argv) /********** main ************************** */
   {
         char cmd[512];
     const char *arg;
+    int display_count = 0;
 
     while (sim_panel_get_state (panel) == Halt) {
         sim_panel_debug (panel, "Halted - Getting registers...");
@@ -997,7 +999,7 @@ int main(int argc, char **argv) /********** main ************************** */
 
                    usleep (100000); // delay
                    
-            DisplayRegisters (panel, 0, 1);
+            DisplayRegisters (panel, 1, 1);
             if (*haltmsg)
                 printf ("%s", haltmsg);
             if ((bpt = strstr (haltmsg, "Breakpoint, PC: "))) {
@@ -1012,8 +1014,8 @@ int main(int argc, char **argv) /********** main ************************** */
             }
         was_halted = 1;
         printf ("SIM> ");
-        if (!fgets (cmd, sizeof(cmd)-1, stdin))
-            break;
+        if (!get_input_event (cmd, sizeof(cmd)-1, stdin)) /* input event - either console or front panel */
+            break;    /* front panel event */
         while (strlen(cmd) && isspace(cmd[strlen(cmd)-1]))
             cmd[strlen(cmd)-1] = '\0';
         DisplayRegisters (panel, 1, 1);
@@ -1072,29 +1074,52 @@ int main(int argc, char **argv) /********** main ************************** */
         else if ((match_command ("EXIT", cmd, NULL)) || (match_command ("QUIT", cmd, NULL)))
             goto Done;
         else {
-            DisplayRegisters (panel, 0, 1);
+            DisplayRegisters (panel, 1, 1); // final parm 1 = restore cursor posn
             printf ("Huh? %s\r\n", cmd);
             }
         }
-    while (sim_panel_get_state (panel) == Run) {
-      char xname[16];
-      int xval; // dummy parms
-        usleep (100000);
-        if (update_display) {
+        char xb[] = "<dummy message>\n";
+        write_to_async(sizeof(xb),xb);
+        while (sim_panel_get_state(panel) == Run)
+        {
+          char xname[16];
+          int xval;       // dummy parms
+          usleep(100000); // was 100000
+          if (update_display)
+          {
             update_display = 0;
-           // DisplayRegisters(panel, 1,1);
-               send_json_regs(jsonbuf);
-            }
-        if(fifo_out(&fifo1,xname,&xval) != 0) { // take action when button is pushed
-          printf( "Halt push removed from fifo\n");
-          if (sim_panel_exec_halt(panel))
-           {
-             printf("Error halting simulator execution: %s\n", sim_panel_get_error());
-            goto Done;
-           }
-        }
-  }
+            // DisplayRegisters(panel, 1,1);
+            send_json_regs(jsonbuf);
+          }
+          // wait for input data
+          pthread_mutex_lock(&fifo_mutex);
 
+          while (fifo_query(&fifo1) == 0)
+          {
+            // if (display_count++ > 10)
+            // {
+            //   DisplayRegisters(panel, 1, 1);
+            //   display_count = 0;
+            // }
+            // take action when button is pushed
+            pthread_cond_wait(&fifo_wait, &fifo_mutex); // wait for signal
+          }
+          fifo_out(&fifo1, xname, &xval);
+          pthread_mutex_unlock(&fifo_mutex);
+          printf("message removed from fifo\n");
+          // if (display_count++ > 10)
+          // {
+          //   DisplayRegisters(panel, 1, 1);
+          //   display_count = 0;
+          // }
+          if (sim_panel_exec_halt(panel))
+          {
+            printf("Error halting simulator execution: %s\n", sim_panel_get_error());
+            goto Done;
+          }
+
+          // pthread_mutex_unlock(&fifo1);
+        }
 }
 Done:
   DisplayRegisters(panel, 0, 1);

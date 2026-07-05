@@ -17,6 +17,9 @@
 #include "cJSON.h" // JSON utilities
 
 //
+pthread_mutex_t fifo_mutex; // control access to fifo for pushbutton events
+pthread_cond_t fifo_wait; // wait for fifo to go non-empty
+//
 //  FIFO package
 //  in = next index for storing
 //  out = next index for retrieving
@@ -106,11 +109,17 @@ int nchars;
 
 /* read data received from hw front panel */
 	while(1) {
-		nchars = read(fd,buff,1);
-		if (nchars < 0) break;
+	//	pthread_mutex_lock(&fifo_mutex);
+    nchars = read(fd,buff,1);
+		if (nchars < 0) {
+    //  pthread_mutex_unlock(&fifo_mutex);
+      break;
+    }
 		if (nchars > 0) {
         //  write(1,buff,nchars);  // echo data on console
          check_for_JSON(buff,nchars);
+         // unlock
+        // pthread_cond_signal(&fifo_wait);
       }
       // JSON processing
 	};
@@ -222,7 +231,11 @@ void process_json(char* inputx,int j)
   temp = status_reg(start, (char *)"MA/SI/RUN");  // look for run button pushed
   if (temp >= 0) {
   printf("received JSON %d\n",temp);
-  if (fifo_query(&fifo1) == 0)  fifo_in(&fifo1,"B_Run",temp); // enforce one at a time for now
+ // if (fifo_query(&fifo1) == 0)  fifo_in(&fifo1,"B_Run",temp); // enforce one at a time for now
+ pthread_mutex_lock(&fifo_mutex);
+ fifo_in(&fifo1,"B_Run",temp); // enqueue data
+  pthread_cond_signal(&fifo_wait); // signal not empty
+  pthread_mutex_unlock(&fifo_mutex);
 }
   // if (temp >= 0)
   // {
@@ -274,3 +287,22 @@ end:
   return status;
 };
 
+//  get input routines
+//  initialize key control variables
+//
+int event_input_start(){
+  pthread_mutex_init(&fifo_mutex,NULL);
+  pthread_cond_init(&fifo_wait,NULL);
+};
+
+//
+char* get_input_event(char *buff, int max, FILE* fn)
+{ /* input event - either console or front panel */
+  char*  status;
+  char cmd[256];
+  status = fgets(cmd, sizeof(cmd) - 1, stdin);
+//  if (!status)
+//    return (status);
+  strncpy(buff,cmd, sizeof(cmd) - 1);
+  return (status);
+};
