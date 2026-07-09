@@ -48,6 +48,7 @@ Based on FrontPanelTest.c
               hardware front panel. Celebrations. 
 06/24/2026 - update register display code
 06/26/2026 - minor updates before adding option processing
+07/05/2026 - main program now waits for thread to read console input (mutex/wait)
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -159,6 +160,7 @@ int PCQ_3_bits[32];
 unsigned long long simulation_time;
 
 int update_display = 1;
+int run_state_loop = 0; // 0 == halt, 1 == run
 
 int debug = 0;
 struct options {
@@ -173,6 +175,13 @@ static void DisplayCallback(PANEL *panel, unsigned long long sim_time,
 {
   simulation_time = sim_time;
   update_display = 1;
+  if (run_state_loop == 0) return;
+   // enqueue item for later main thread processing
+ pthread_mutex_lock(&fifo_mutex);
+ fifo_in(&fifo1,"DisplayUpdate",0); // enqueue data
+  pthread_cond_signal(&fifo_wait); // signal not empty
+  pthread_mutex_unlock(&fifo_mutex);
+  //
 }
 
 static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
@@ -499,7 +508,7 @@ int panel_setup() /* called from main() */
   }
 #endif
   if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL,
-                                              200000)) 
+                                              500000))  // slow down from 200 000
   {
     printf("Error setting automatic display callback: %s\n",
            sim_panel_get_error());
@@ -983,6 +992,9 @@ int main(int argc, char **argv) /********** main ************************** */
 
   sim_panel_debug(panel, "start long-running loop\n");
   sim_panel_flush_debug(panel);
+  //
+  //  Long Running Loop
+  //
   while (1)
   {
         char cmd[512];
@@ -990,6 +1002,7 @@ int main(int argc, char **argv) /********** main ************************** */
     int display_count = 0;
 
     while (sim_panel_get_state (panel) == Halt) {
+        run_state_loop = 0; // set flag for displaying register on callback
         sim_panel_debug (panel, "Halted - Getting registers...");
         sim_panel_get_registers (panel, &simulation_time);
         if (!was_halted) {
@@ -1012,6 +1025,8 @@ int main(int argc, char **argv) /********** main ************************** */
                     }
                 }
             }
+        //
+        //    
         was_halted = 1;
         printf ("SIM> ");
         if (!get_input_event (cmd, sizeof(cmd)-1, stdin)) /* input event - either console or front panel */
@@ -1040,8 +1055,10 @@ int main(int argc, char **argv) /********** main ************************** */
                 break;
             }
         else if (match_command ("CONT", cmd, NULL)) {
-            if (sim_panel_exec_run (panel))
-                break;
+            // if (sim_panel_exec_run (panel))
+            //     break;
+            sim_panel_exec_run (panel);
+            break;
             }
         else if (match_command ("EXAMINE ", cmd, &arg)) {
             int value;
@@ -1078,8 +1095,8 @@ int main(int argc, char **argv) /********** main ************************** */
             printf ("Huh? %s\r\n", cmd);
             }
         }
-        char xb[] = "<dummy message>\n";
-        write_to_async(sizeof(xb),xb);
+        // char xb[] = "<dummy message>\n";
+        // write_to_async(sizeof(xb),xb);
         while (sim_panel_get_state(panel) == Run)
         {
           char xname[16];
@@ -1089,36 +1106,41 @@ int main(int argc, char **argv) /********** main ************************** */
           {
             update_display = 0;
             // DisplayRegisters(panel, 1,1);
-            send_json_regs(jsonbuf);
+            // send_json_regs(jsonbuf);
           }
           // wait for input data
+          run_state_loop = 1; // set flag to run state
           pthread_mutex_lock(&fifo_mutex);
 
-          while (fifo_query(&fifo1) == 0)
+          while (fifo_query(&fifo1) == 0) 
           {
-            // if (display_count++ > 10)
-            // {
-            //   DisplayRegisters(panel, 1, 1);
-            //   display_count = 0;
-            // }
             // take action when button is pushed
             pthread_cond_wait(&fifo_wait, &fifo_mutex); // wait for signal
           }
           fifo_out(&fifo1, xname, &xval);
           pthread_mutex_unlock(&fifo_mutex);
-          printf("message removed from fifo\n");
-          // if (display_count++ > 10)
-          // {
-          //   DisplayRegisters(panel, 1, 1);
-          //   display_count = 0;
-          // }
-          if (sim_panel_exec_halt(panel))
+          // check for type of event
+          if (strcmp(xname, "B_Run") == 0)
           {
-            printf("Error halting simulator execution: %s\n", sim_panel_get_error());
-            goto Done;
+            printf("B_Run message removed from fifo %s %d\n", xname, xval);
+            if (sim_panel_exec_halt(panel)) // Event: Run button pushed
+            {
+              printf("Error halting simulator execution: %s\n", sim_panel_get_error());
+              goto Done;
+            }
+            usleep(100000);
+            while(fifo_query(&fifo1) != 0) fifo_out(&fifo1, xname, &xval); // drain further events
+            // DisplayRegisters(panel, 1,1);
+            send_json_regs(jsonbuf); // make sure we display the latest registers
           }
-
-          // pthread_mutex_unlock(&fifo1);
+          else if (strcmp(xname, "DisplayUpdate") == 0) // 
+          {
+            send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
+          }
+          else
+          {
+            printf("Unidentified message removed from fifo %s %d\n", xname, xval);
+          }
         }
 }
 Done:

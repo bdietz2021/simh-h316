@@ -44,7 +44,7 @@ struct button_type {
 };
 struct button_type button_tbl[] = {
    1, "MA/SI/RUN",
-   2, "junk"
+   2, "TIMER"
 };
 //
 void fifo_init(struct fifo *fwork){
@@ -54,7 +54,8 @@ int fifo_in(struct fifo *fwork,char *nin,int vin)
 {
   int i;
   i = fwork->in;
-  fwork->block[i].value = vin;
+  strcpy(fwork->block[i].name,nin); // store name
+  fwork->block[i].value = vin;  // store value
 
   if (++i >= N_FIFO) i = 0;  // check for wrap 
   fwork->in = i; 
@@ -66,7 +67,7 @@ int fifo_out(struct fifo *fwork,char *nout,int *vout)
   if (fwork->in == fwork->out) return(0);
   i = fwork->out;
   *vout = fwork->block[i].value;
-
+  strcpy(nout,fwork->block[i].name);
   if (++i >= N_FIFO) i = 0;
   fwork->out = i;
   return(1);
@@ -228,14 +229,15 @@ void process_json(char* inputx,int j)
     printf("inputx = %s\n",inputx);
     return;
   }
-  temp = status_reg(start, (char *)"MA/SI/RUN");  // look for run button pushed
+  temp = status_reg(start, (char *)"Start");  // look for run button pushed
   if (temp >= 0) {
   printf("received JSON %d\n",temp);
- // if (fifo_query(&fifo1) == 0)  fifo_in(&fifo1,"B_Run",temp); // enforce one at a time for now
+ // enqueue item for main thread processing
  pthread_mutex_lock(&fifo_mutex);
  fifo_in(&fifo1,"B_Run",temp); // enqueue data
   pthread_cond_signal(&fifo_wait); // signal not empty
   pthread_mutex_unlock(&fifo_mutex);
+  //
 }
   // if (temp >= 0)
   // {
@@ -303,6 +305,6 @@ char* get_input_event(char *buff, int max, FILE* fn)
   status = fgets(cmd, sizeof(cmd) - 1, stdin);
 //  if (!status)
 //    return (status);
-  strncpy(buff,cmd, sizeof(cmd) - 1);
+  status = strncpy(buff,cmd, sizeof(cmd) - 1);
   return (status);
 };
