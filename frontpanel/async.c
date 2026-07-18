@@ -15,7 +15,10 @@
 #include <pthread.h>
 
 #include "cJSON.h" // JSON utilities
+#include "async.h"
+#include "FrontPanelH316.h"
 
+int async_debug = 0; // flag settable by gdb
 //
 pthread_mutex_t fifo_mutex; // control access to fifo for pushbutton events
 pthread_cond_t fifo_wait; // wait for fifo to go non-empty
@@ -38,13 +41,31 @@ struct fifo {
 
 struct fifo fifo1; // fifo for msgs from async input thread
 
+//
+//  define all buttons exceot Bit 1-16
+//
 struct button_type {
   int button_code;
   char button_name[16];
 };
-struct button_type button_tbl[] = {
-   1, "MA/SI/RUN",
-   2, "TIMER"
+struct button_type button_tbl[] = { 
+   1, "Start",
+   2, "RUN",
+   3, "SI",
+   4, "MA",
+   5, "P+1",
+   6, "Fetch",
+   7, "M-clear",
+   8, "M-reg",
+   9, "P/Y",
+   10, "OP",
+   11, "B",
+   12, "A",
+   13, "SS4",
+   14, "SS3",
+   15, "SS2",
+   16, "SS1",
+   17, "CLR"
 };
 //
 void fifo_init(struct fifo *fwork){
@@ -68,7 +89,8 @@ int fifo_out(struct fifo *fwork,char *nout,int *vout)
   i = fwork->out;
   *vout = fwork->block[i].value;
   strcpy(nout,fwork->block[i].name);
-  if (++i >= N_FIFO) i = 0;
+  i++;
+  if (i >= N_FIFO) i = 0;
   fwork->out = i;
   return(1);
 };
@@ -76,7 +98,7 @@ int fifo_query(struct fifo *fwork)
 {
   int i;
   i = fwork->in - fwork->out;
-  if (i<0) i = -i;
+  if (i<0) i = N_FIFO -i;
   return(i);
 }
 
@@ -145,7 +167,7 @@ int write_to_async(int nchars,char* buff) {
       return(0); 
 };
 
-int async_start() 
+int async_start(int flag) 
 {
 // char buff[120];
 // int nchars;
@@ -153,6 +175,7 @@ pthread_t thread1;
 
 char portname[] = "/dev/ttyACM0";
 char errormsg[120];
+async_debug = flag;
 
    // Replace /dev/ttyACM1 with the name of your Serial Port
    
@@ -201,17 +224,23 @@ front_panel_char_count = 0;   // nothing received yet
 
 // JSON processing code
 //
-void check_for_JSON(char* inbuf,int n)
+void check_for_JSON(char *inbuf, int n)
 {
-    if (inbuf[n-1] == '\n') {
-       write(1,front_panel_buff,front_panel_char_count);  // echo data on console
-       write(1,"\n",1);
-       front_panel_buff[front_panel_char_count+1] = 0;  // insure null termination
-       process_json(front_panel_buff,front_panel_char_count); // process accumulated chars
-       front_panel_char_count = 0;
-    } else {
-      front_panel_buff[front_panel_char_count++] = inbuf[0];
+  if (inbuf[n - 1] == '\n')
+  {
+   if (async_debug != 0)
+    {
+      write(1, front_panel_buff, front_panel_char_count); // echo data on console
+      write(1, "\n", 1);
     }
+    front_panel_buff[front_panel_char_count + 1] = 0;       // insure null termination
+    process_json(front_panel_buff, front_panel_char_count); // process accumulated chars
+    front_panel_char_count = 0;
+  }
+  else
+  {
+    front_panel_buff[front_panel_char_count++] = inbuf[0];
+  }
 };
 
 /** @brief process a json command enclosed in <>
@@ -298,13 +327,55 @@ int event_input_start(){
 };
 
 //
-char* get_input_event(char *buff, int max, FILE* fn)
-{ /* input event - either console or front panel */
+//  this is the "input from stdin" thread
+//  read a command from stdin and queue it for
+//  processing by the main thread
+//
+int stdin_input_start()   // create thread
+{
+  pthread_t thread2;
+  pthread_create(&thread2, NULL, from_stdin, NULL); // create thread to read from stdin
+    return 0;
+} 
+
+//
+//  read input and save in dedicated buffer
+//
+static char operator_input[256];  // last operator command
+static int operator_input_flag = 0;
+
+void* from_stdin(void* arg)
+{
+// char* get_input_event(char *buff, int max) - wrong 
+/* input event - either console or front panel */
   char*  status;
-  char cmd[256];
-  status = fgets(cmd, sizeof(cmd) - 1, stdin);
+  while (1) {
+ status = fgets(operator_input, sizeof(operator_input) - 1, stdin);
 //  if (!status)
 //    return (status);
-  status = strncpy(buff,cmd, sizeof(cmd) - 1);
-  return (status);
+ // status = strncpy(buff,operator_input, sizeof(operator_input) - 1);
+  operator_input_flag = 1; // command waiting
+   // enqueue item for main thread processing
+ pthread_mutex_lock(&fifo_mutex);
+ fifo_in(&fifo1,"Input_waiting",0); // enqueue data
+  pthread_cond_signal(&fifo_wait); // signal not empty
+  pthread_mutex_unlock(&fifo_mutex);
+  };
+  //
+  // return (status);
+};
+
+//
+//  return command previously read from stdin
+//
+char* get_input_event(char *buff, int max)
+{
+  char* status;
+
+  if (operator_input_flag != 0){
+    operator_input_flag = 0;
+    status = strncpy(buff,operator_input, sizeof(operator_input) - 1);
+    return(status);
+  }
+  else return(NULL);
 };

@@ -20,7 +20,7 @@ int main(int argc, char **argv)
     printf("paneltest: display values on LED displays\n");
     if (argc > 1)
         option = argc;
-    r = async_start();
+    r = async_start(1);
 
     // <string> {"A":15438,"B":0,"M-reg":43579,"P/Y":66}
     int nreps = 10000;
