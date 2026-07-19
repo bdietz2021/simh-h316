@@ -49,6 +49,8 @@ struct button_type {
   char button_name[16];
 };
 struct button_type button_tbl[] = { 
+   999, "Input_waiting",  // not a button, but input recieved from stdin
+   0, "DisplayUpdate",  // not a button, but send out the register values
    1, "Start",
    2, "RUN",
    3, "SI",
@@ -67,6 +69,7 @@ struct button_type button_tbl[] = {
    16, "SS1",
    17, "CLR"
 };
+#define NBUTTONS (sizeof(button_tbl)/sizeof(struct button_type))
 //
 void fifo_init(struct fifo *fwork){
   fwork->in = fwork->out = 0;
@@ -101,6 +104,23 @@ int fifo_query(struct fifo *fwork)
   if (i<0) i = N_FIFO -i;
   return(i);
 }
+
+//
+//  look up front panel button
+//
+int look_up_button(char *bname, int *value)
+{
+  int i;
+  for (i = 0; i < NBUTTONS; i++)
+  {
+    if (strcmp(bname, button_tbl[i].button_name) == 0)
+    {
+      *value = button_tbl[i].button_code;
+      return (button_tbl[i].button_code);
+    }
+  }
+  return (-1);
+};
 
 struct termios serial_port_settings;
 int option = 0;
@@ -263,7 +283,7 @@ void process_json(char* inputx,int j)
   printf("received JSON %d\n",temp);
  // enqueue item for main thread processing
  pthread_mutex_lock(&fifo_mutex);
- fifo_in(&fifo1,"B_Run",temp); // enqueue data
+ fifo_in(&fifo1,"Start",temp); // enqueue data
   pthread_cond_signal(&fifo_wait); // signal not empty
   pthread_mutex_unlock(&fifo_mutex);
   //
