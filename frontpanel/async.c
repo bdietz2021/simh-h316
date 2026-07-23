@@ -46,7 +46,7 @@ struct fifo fifo1; // fifo for msgs from async input thread
 //
 struct button_type {
   int button_code;
-  char button_name[16];
+  char button_name[24];
 };
 struct button_type button_tbl[] = { 
    999, "Input_waiting",  // not a button, but input recieved from stdin
@@ -143,7 +143,7 @@ int front_panel_char_count;
 char front_panel_buff[256];
 void check_for_JSON(char* ,int );
 void process_json(char* ,int );
-int status_reg(const char *const , char *);
+char* status_reg(const char *const , char[], int , char[] );
 
 void* from_async(void* arg)
 {
@@ -268,22 +268,24 @@ void check_for_JSON(char *inbuf, int n)
  */
 void process_json(char* inputx,int j)
 {
-  int temp;
-  char* start;  // start of JSON string
+  char* temp;
+  char* json_start;  // start of JSON string
+  int ival;  // value from json
+  char sval[32]; // string
 
   if (front_panel_char_count < 2) return; // checkk for short input
   
-  start = strchr(inputx,'{'); // find start of JSON string
-  if (start == NULL) {
+  json_start = strchr(inputx,'{'); // find start of JSON string
+  if (json_start == NULL) {
     printf("inputx = %s\n",inputx);
     return;
   }
-  temp = status_reg(start, (char *)"Start");  // look for run button pushed
-  if (temp >= 0) {
-  printf("received JSON %d\n",temp);
+  temp = status_reg(json_start, (char *)"Button", ival, sval);  // look for run button pushed
+  if (temp > 0) {
+  printf("received JSON %s\n",temp);
  // enqueue item for main thread processing
  pthread_mutex_lock(&fifo_mutex);
- fifo_in(&fifo1,"Start",temp); // enqueue data
+ fifo_in(&fifo1,sval,0); // enqueue data
   pthread_cond_signal(&fifo_wait); // signal not empty
   pthread_mutex_unlock(&fifo_mutex);
   //
@@ -297,40 +299,43 @@ void process_json(char* inputx,int j)
 
 /** @brief: process json command to set A register
  *
+ * <{"Button": {"Name": "Start", "State": 1, "Value": 1465902417} }}>
  */
-int status_reg(const char *const monitor, char *reg_name)
+char* status_reg(const char *const jptr, char reg_name[], int ival, char sval[])
 {
   const cJSON *a_ptr = NULL;
   const cJSON *name = NULL;
-  int status = -1;
+  char* status = NULL;
 
-  cJSON *monitor_json = cJSON_Parse(monitor);
-  if (monitor_json == NULL)
+  cJSON *jptr_json = cJSON_Parse(jptr);
+  if (jptr_json == NULL)
   {
     const char *error_ptr = cJSON_GetErrorPtr();
     if (error_ptr != NULL)
     {
       fprintf(stderr, "Error before: %s\n", error_ptr);
     }
-    status = -1;
+    status = NULL;
     goto end;
   }
 
-  name = cJSON_GetObjectItemCaseSensitive(monitor_json, "name");
+  name = cJSON_GetObjectItemCaseSensitive(jptr_json, "Button"); // find button
   if (cJSON_IsString(name) && (name->valuestring != NULL))
   {
-    printf("Checking monitor \"%s\"\n", name->valuestring);
+    printf("Found Button\n");
   }
 
-  a_ptr = cJSON_GetObjectItemCaseSensitive(monitor_json, reg_name);
-  if (cJSON_IsNumber(a_ptr))
+  a_ptr = cJSON_GetObjectItemCaseSensitive(name, "Name"); // find name
+  if (cJSON_IsString(a_ptr))
   {
-    status = a_ptr->valuedouble;
+    // copy string 
+    strcpy(sval,a_ptr->valuestring);
+    status = (char *) a_ptr->valuestring; // return address of 
     goto end;
-  }
+  } 
 
 end:
-  cJSON_Delete(monitor_json);
+  cJSON_Delete(jptr_json);
   // Serial.print("json values ");
   // Serial.print(status);
   // Serial.print(reg_name);

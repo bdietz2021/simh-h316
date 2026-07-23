@@ -742,11 +742,21 @@ int main(int argc, char **argv) /********** main ************************** */
          switch (button_code)
          {
          case 0:
+          break;
          case 1:
-           break;
+          printf("Start button pushed in Halt mode\n");  
+          break;
+        case 3:  // SI button pushed in halt mode
+            printf("SI button pushed in Halt mode\n");  
+            if (sim_panel_exec_step(panel))
+               printf("Step Error\n");
+            break;
          default:
          if (!get_input_event(cmd, sizeof(cmd) - 1)) // get command from stdin/operator
-          break;  
+          {
+            printf("default case in Halt mode. No input. button_code = %d\n",button_code);
+            break;  
+          }
 
          while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
              cmd[strlen(cmd) - 1] = '\0';
@@ -845,7 +855,7 @@ int main(int argc, char **argv) /********** main ************************** */
     }
     else if (run_state == Run)
     {
-      char xname[16];
+      char xname[24];
       int xval; // dummy parms
                 // wait for event queue
                 // input event sets main_state = 2
