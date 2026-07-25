@@ -50,6 +50,7 @@ Based on FrontPanelTest.c
 06/26/2026 - minor updates before adding option processing
 07/05/2026 - main program now waits for thread to read console input (mutex/wait)
 07/19/2026 - refactor the "forever" loop in main
+07/24/2026 - start button works - clean up code and printfs
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -572,6 +573,7 @@ struct execution_breakpoint
 int main(int argc, char **argv) /********** main ************************** */
 {
     int run_state = 0;  // Run vs. Halt (enum)
+    int run_state_old = -1;
     int main_state = 0; // starting condition
 
     char jsonbuf[512]; //     send_json_regs(jsonbuf);
@@ -581,9 +583,13 @@ int main(int argc, char **argv) /********** main ************************** */
     stdin_input_start();  // start thread to read stdin and enque in fifo1
     int was_halted = 1, i; // was 1
 
-  if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) ||
-                     (!strcmp("-debug", argv[1]))))
-    debug = 1;
+    if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) ||
+                       (!strcmp("-debug", argv[1]))))
+      debug = 1;
+
+      if ( (argc > 1) &&  (!strcmp("-a", argv[1]) )  )
+         async_debug = 1;
+
     // debug_opt.option1 = 0;
     // debug_opt.option2 = 0;
 
@@ -625,7 +631,7 @@ int main(int argc, char **argv) /********** main ************************** */
   /* DEBUG BJD - check this doloop */
   for (i = 0; long_running_program[i].instr; i++)
   {
-    printf("deposit instruction %o = %s \n", long_running_program[i].addr, long_running_program[i].instr);
+    // printf("deposit instruction %o = %s \n", long_running_program[i].addr, long_running_program[i].instr);
     if (sim_panel_mem_deposit_instruction(
             panel, sizeof(long_running_program[i].addr),
             &long_running_program[i].addr, long_running_program[i].instr))
@@ -671,7 +677,11 @@ int main(int argc, char **argv) /********** main ************************** */
     int button_code = -1; // value of front panel button
 
     run_state = sim_panel_get_state(panel);
-    printf("main loop %d: run_state = %d, main_state = %d\n", ctr++, run_state, main_state);
+    if (run_state != run_state_old)
+    {
+      run_state_old = run_state;
+      printf("main loop %d: run_state = %d, main_state = %d\n", ctr++, run_state, main_state);
+    }
 
     if ((run_state == Halt) || (main_state == 2))
     {
@@ -707,7 +717,6 @@ int main(int argc, char **argv) /********** main ************************** */
           }
 #endif
         }
-
         //
         was_halted = 1;
         printf("SIM> "); /*************************************************** */
@@ -727,10 +736,11 @@ int main(int argc, char **argv) /********** main ************************** */
         while (fifo_query(&fifo1) == 0)
         {
           // take action when button is pushed
-          printf("top wait run_state = %d\n", run_state);
+         // printf("top wait run_state = %d\n", run_state);
           pthread_cond_wait(&fifo_wait, &fifo_mutex); // wait for signal
         }
-        fifo_out(&fifo1, xname, &xval); // pop item out of queue
+        if (fifo_out(&fifo1, xname, &xval) == 0)
+          printf("zero return from fifo_out\n"); // pop item out of queue
         pthread_mutex_unlock(&fifo_mutex);
 
 
@@ -742,105 +752,111 @@ int main(int argc, char **argv) /********** main ************************** */
          switch (button_code)
          {
          case 0:
+          // printf("Start button pushed in Halt mode 0\n"); 
           break;
          case 1:
-          printf("Start button pushed in Halt mode\n");  
+           printf("Start button pushed in Halt mode 1\n");  
+           printf("Starting execution\n");
+             if (sim_panel_exec_start(panel)) // start execution
+                 goto Done;
+
           break;
         case 3:  // SI button pushed in halt mode
             printf("SI button pushed in Halt mode\n");  
             if (sim_panel_exec_step(panel))
                printf("Step Error\n");
+            send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
             break;
-         default:
-         if (!get_input_event(cmd, sizeof(cmd) - 1)) // get command from stdin/operator
+        default:
+          if (!get_input_event(cmd, sizeof(cmd) - 1)) // get command from stdin/operator
           {
-            printf("default case in Halt mode. No input. button_code = %d\n",button_code);
-            break;  
+            printf("default case in Halt mode. No input. button_code = %d\n", button_code);
+            break;
           }
 
-         while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
-             cmd[strlen(cmd) - 1] = '\0';
+          while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
+            cmd[strlen(cmd) - 1] = '\0';
 
-           DisplayRegisters(panel, 1, 1);
-           if (strcmp("Input_waiting", cmd) == 0)
-           {
-             process_front_panel_input(cmd); // a button was pushed
-             main_state = 0;
-             break;
-           }
-           else if (match_command("BOOT", cmd, &arg))
-           {
-             if (sim_panel_exec_boot(panel, arg))
-               break;
-           }
-           else if (match_command("BREAK ", cmd, &arg))
-           {
-             if (sim_panel_break_set(panel, arg))
-               printf("Error Setting Breakpoint '%s': %s\n", arg, sim_panel_get_error());
-           }
-           else if (match_command("NOBREAK ", cmd, &arg))
-           {
-             if (sim_panel_break_clear(panel, arg))
-               printf("Error Clearing Breakpoint '%s': %s\n", arg, sim_panel_get_error());
-           }
-           else if (match_command("STEP", cmd, NULL))
-           {
-             if (sim_panel_exec_step(panel))
-               break;
-           }
-           else if (match_command("GO", cmd, &arg))
-           { /* go p 33000 */
-             if (sim_go(panel, arg, NULL))
-               break;
-           }
-           else if (match_command("CONT", cmd, NULL))
-           {
-             // if (sim_panel_exec_run (panel))
-             //     break;
-             sim_panel_exec_run(panel);
-             main_state = 3; //
-             break;
-           }
-           else if (match_command("EXAMINE ", cmd, &arg))
-           {
-             int value;
+          DisplayRegisters(panel, 1, 1);
+          if (strcmp("Input_waiting", cmd) == 0)
+          {
+            process_front_panel_input(cmd); // a button was pushed
+            main_state = 0;
+            break;
+          }
+          else if (match_command("BOOT", cmd, &arg))
+          {
+            if (sim_panel_exec_boot(panel, arg))
+              break;
+          }
+          else if (match_command("BREAK ", cmd, &arg))
+          {
+            if (sim_panel_break_set(panel, arg))
+              printf("Error Setting Breakpoint '%s': %s\n", arg, sim_panel_get_error());
+          }
+          else if (match_command("NOBREAK ", cmd, &arg))
+          {
+            if (sim_panel_break_clear(panel, arg))
+              printf("Error Clearing Breakpoint '%s': %s\n", arg, sim_panel_get_error());
+          }
+          else if (match_command("STEP", cmd, NULL))
+          {
+            if (sim_panel_exec_step(panel))
+              break;
+          }
+          else if (match_command("GO", cmd, &arg))
+          { /* go p 33000 */
+            if (sim_go(panel, arg, NULL))
+              break;
+          }
+          else if (match_command("CONT", cmd, NULL))
+          {
+            // if (sim_panel_exec_run (panel))
+            //     break;
+            sim_panel_exec_run(panel);
+            main_state = 3; //
+            break;
+          }
+          else if (match_command("EXAMINE ", cmd, &arg))
+          {
+            int value;
 
-             if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
-               printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
-             else
-               printf("%s: %08X\n", arg, value);
-           }
-           else if (match_command("HISTORY ", cmd, &arg))
-           {
-             char history[10240];
-             int count = atoi(arg);
+            if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
+              printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
+            else
+              printf("%s: %08X\n", arg, value);
+          }
+          else if (match_command("HISTORY ", cmd, &arg))
+          {
+            char history[10240];
+            int count = atoi(arg);
 
-             history[sizeof(history) - 1] = '\0';
-             if (sim_panel_get_history(panel, count, sizeof(history) - 1, history))
-               printf("Error retrieving instruction history: %s\n", sim_panel_get_error());
-             else
-               printf("%s\n", history);
-           }
-           else if (match_command("DEBUG ", cmd, &arg))
-           {
-             if (arg[0] == '-')
-             {
-               if (sim_panel_device_debug_mode(panel, NULL, 1, arg))
-                 printf("Error setting debug mode: %s\n", sim_panel_get_error());
-             }
-             else
-             {
-               if (sim_panel_device_debug_mode(panel, arg, 1, NULL))
-                 printf("Error setting debug mode: %s\n", sim_panel_get_error());
-             }
-           }
-           else if ((match_command("EXIT", cmd, NULL)) || (match_command("QUIT", cmd, NULL)))
-             goto Done;
-           else
-           {
-             DisplayRegisters(panel, 1, 1); // final parm 1 = restore cursor posn
-             printf("Huh? %s\r\n", cmd);
-           }
+            history[sizeof(history) - 1] = '\0';
+            if (sim_panel_get_history(panel, count, sizeof(history) - 1, history))
+              printf("Error retrieving instruction history: %s\n", sim_panel_get_error());
+            else
+              printf("%s\n", history);
+          }
+          else if (match_command("DEBUG ", cmd, &arg))
+          {
+            if (arg[0] == '-')
+            {
+              if (sim_panel_device_debug_mode(panel, NULL, 1, arg))
+                printf("Error setting debug mode: %s\n", sim_panel_get_error());
+            }
+            else
+            {
+              if (sim_panel_device_debug_mode(panel, arg, 1, NULL))
+                printf("Error setting debug mode: %s\n", sim_panel_get_error());
+            }
+          }
+          else if ((match_command("EXIT", cmd, NULL)) || (match_command("QUIT", cmd, NULL)))
+            goto Done;
+          else
+          {
+            DisplayRegisters(panel, 1, 1); // final parm 1 = restore cursor posn
+            printf("Huh? %s\r\n", cmd);
+          }
          } // end switch
       }
         main_state = 0; // back to normal
@@ -866,7 +882,7 @@ int main(int argc, char **argv) /********** main ************************** */
       while (fifo_query(&fifo1) == 0)
       {
 
-        printf("bottom wait run_state = %d\n", run_state); // take action when button is pushed
+        // printf("bottom wait run_state = %d\n", run_state); // take action when button is pushed
         pthread_cond_wait(&fifo_wait, &fifo_mutex);        // wait for signal
       }
       fifo_out(&fifo1, xname, &xval); // pull one event out of fifo
@@ -884,7 +900,8 @@ int main(int argc, char **argv) /********** main ************************** */
       switch (button_code)
       {
       case 1:
-        printf("Start message removed from fifo %s %d\n", xname, xval);
+        // printf("Start message removed from fifo %s %d\n", xname, xval);
+        printf("Start Button: pushed in run mode - halting SIMH\n");
         main_state = 0;                 // set up for console input
         if (sim_panel_exec_halt(panel)) // Event: Run button pushed
         {
@@ -894,7 +911,7 @@ int main(int argc, char **argv) /********** main ************************** */
         //
         send_json_regs(jsonbuf); // make sure we display the latest registers
         break;
-      // else if (strcmp(xname, "DisplayUpdate") == 0) //
+  
       case 0:
 
         send_json_regs(jsonbuf); // Event: time make sure we display the latest registers

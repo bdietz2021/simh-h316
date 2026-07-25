@@ -4,8 +4,8 @@
 // change variable portname if needed
 //
 // also, for now, decodes JSON messages from hw front panel
+//  07/24/2026 - start button works - clean up code and printfs
 //
-//  tweak to add \name
 //
 #include <stdio.h>  
 #include <string.h>
@@ -277,7 +277,7 @@ void process_json(char* inputx,int j)
   
   json_start = strchr(inputx,'{'); // find start of JSON string
   if (json_start == NULL) {
-    printf("inputx = %s\n",inputx);
+    // printf("inputx = %s\n",inputx);
     return;
   }
   temp = status_reg(json_start, (char *)"Button", ival, sval);  // look for run button pushed
