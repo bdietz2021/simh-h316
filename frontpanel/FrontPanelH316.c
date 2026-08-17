@@ -653,7 +653,7 @@ int main(int argc, char **argv) /********** main ************************** */
   static char cmd[512];
 
   // if (sim_panel_exec_run(panel)) // start execution
-  if (sim_panel_exec_start(panel)) // start execution
+  if (sim_panel_exec_start(panel)) // start execution - big fix for odd problems
     goto Done;
 
   // add delay
@@ -757,7 +757,8 @@ int main(int argc, char **argv) /********** main ************************** */
          case 1:
            printf("Start button pushed in Halt mode 1\n");  
            printf("Starting execution\n");
-             if (sim_panel_exec_start(panel)) // start execution
+             if (sim_panel_exec_run(panel)) // start execution w/o reset
+             // if (sim_panel_exec_start(panel)) // start execution
                  goto Done;
 
           break;
@@ -811,9 +812,8 @@ int main(int argc, char **argv) /********** main ************************** */
           }
           else if (match_command("CONT", cmd, NULL))
           {
-            // if (sim_panel_exec_run (panel))
-            //     break;
-            sim_panel_exec_run(panel);
+            if (sim_panel_exec_run (panel)) // CONT - no reset of simulator
+                 break;
             main_state = 3; //
             break;
           }
