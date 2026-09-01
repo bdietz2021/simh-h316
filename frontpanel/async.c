@@ -5,8 +5,8 @@
 //
 // also, for now, decodes JSON messages from hw front panel
 //  07/24/2026 - start button works - clean up code and printfs
-//
-//
+//  08/17/2026 - revise for new json message from h316 firmware
+//  09/01/2026 - now finds "Name: Start" in json msg
 #include <stdio.h>  
 #include <string.h>
 #include <fcntl.h>    /* file open flags and open() */
@@ -81,6 +81,10 @@ int fifo_in(struct fifo *fwork,char *nin,int vin)
   strcpy(fwork->block[i].name,nin); // store name
   fwork->block[i].value = vin;  // store value
 
+  if (nin[0] == 0) {
+    printf("zero nin\n");
+  }
+
   if (++i >= N_FIFO) i = 0;  // check for wrap 
   fwork->in = i; 
   return (0);
@@ -142,7 +146,7 @@ int front_panel_input;  // flag for data available
 int front_panel_char_count;
 char front_panel_buff[256];
 void check_for_JSON(char* ,int );
-void process_json(char* ,int );
+void process_json_from_h316(char* ,int );
 char* status_reg(const char *const , char[], int , char[] );
 
 void* from_async(void* arg)
@@ -254,7 +258,7 @@ void check_for_JSON(char *inbuf, int n)
       write(1, "\n", 1);
     }
     front_panel_buff[front_panel_char_count + 1] = 0;       // insure null termination
-    process_json(front_panel_buff, front_panel_char_count); // process accumulated chars
+    process_json_from_h316(front_panel_buff, front_panel_char_count); // process accumulated chars
     front_panel_char_count = 0;
   }
   else
@@ -266,36 +270,76 @@ void check_for_JSON(char *inbuf, int n)
 /** @brief process a json command enclosed in <>
  * <{"name":"H316 Front Panel Status","A":668,"B":1024}> (test data)
  */
-void process_json(char* inputx,int j)
+void process_json_from_h316(char *inputx, int j)
 {
-  char* temp;
-  char* json_start;  // start of JSON string
-  int ival;  // value from json
-  char sval[32]; // string
+  char *temp;
+  char *json_start; // start of JSON string
 
-  if (front_panel_char_count < 2) return; // checkk for short input
-  
-  json_start = strchr(inputx,'{'); // find start of JSON string
-  if (json_start == NULL) {
-    // printf("inputx = %s\n",inputx);
-    return;
+  int ival;      // value from json
+  char sval[32]; // string
+  const cJSON *a_ptr = NULL;
+  const cJSON *name = NULL;
+  char *status = NULL;
+
+  if (front_panel_char_count < 2)
+    return; // check for short input
+
+  // look for enclosing '{' }
+  json_start = strchr(inputx, '{'); // find start of JSON string
+  if (json_start == NULL)
+  {
+    printf("inputx = %s\n", inputx);
+    return; // msg doesn't contain {
   }
-  temp = status_reg(json_start, (char *)"Button", ival, sval);  // look for run button pushed
-  if (temp > 0) {
-  printf("received JSON %s\n",temp);
- // enqueue item for main thread processing
- pthread_mutex_lock(&fifo_mutex);
- fifo_in(&fifo1,sval,0); // enqueue data
+  // process json message to find key fields
+  cJSON *jptr_json = cJSON_Parse(json_start);
+  if (jptr_json == NULL)
+  {
+    const char *error_ptr = cJSON_GetErrorPtr();
+    if (error_ptr != NULL)
+    {
+      fprintf(stderr, "Error before: %s\n", error_ptr);
+    }
+    status = NULL;
+    goto end;
+  }
+  //  test for "Button:"
+  cJSON *jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Button"); // find Button:
+  if (jptr_json2 != NULL) 
+  {
+    // get values of Button:
+    // 9/1/2026 - get object starts search in "child" link
+    a_ptr = cJSON_GetObjectItemCaseSensitive(jptr_json2, "Name"); // find name
+    if (1) // (cJSON_IsString(a_ptr))
+    {
+      // copy string
+      strcpy(sval, a_ptr->valuestring);
+      status = (char *)a_ptr->valuestring; // return address of
+      goto end;
+    }
+    // end found button
+  }
+  else
+  {
+  //  test for "Registers:"
+  jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Registers"); // find Registers:
+  if (cJSON_IsString(jptr_json2) && (jptr_json2->valuestring != NULL))
+  {
+      printf("Registers found\n");
+  }
+  else goto end;
+  };
+end:
+  cJSON_Delete(jptr_json);
+  // check for nothing found
+  if ((status == NULL) || (sval[0] == 0) ) return;
+  // enqueue item for main thread processing
+  pthread_mutex_lock(&fifo_mutex);
+  fifo_in(&fifo1, sval, 0);        // enqueue data
   pthread_cond_signal(&fifo_wait); // signal not empty
   pthread_mutex_unlock(&fifo_mutex);
   //
-}
-  // if (temp >= 0)
-  // {
-  //   continue;
-  // };
-  //
-};
+  };
 
 /** @brief: process json command to set A register
  *
