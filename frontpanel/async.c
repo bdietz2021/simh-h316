@@ -74,6 +74,16 @@ struct button_type button_tbl[] = {
 void fifo_init(struct fifo *fwork){
   fwork->in = fwork->out = 0;
 }
+
+// static unsigned int P, A, B, X, atP;
+static unsigned int P;  // these are external symbols from FrontPanelH316.c
+static unsigned int A;
+static unsigned int B;
+static unsigned int X;
+static unsigned int atP;
+
+static struct register_set from_firmware;
+
 int fifo_in(struct fifo *fwork,char *nin,int vin)
 {
   int i;
@@ -267,6 +277,29 @@ void check_for_JSON(char *inbuf, int n)
   }
 };
 
+/** @brief save/restore key registers in emulatedd H316 */
+void h316_save(struct register_set *out, unsigned int P, unsigned int A, unsigned int B, unsigned int X)
+{
+  out->P = P;
+  out->A = A;
+  out->B = B;
+  out->X = X;
+};
+
+
+/** @brief save/restore key registers in emulatedd H316 */
+void h316_restore(struct register_set *in, unsigned int P, unsigned int A, unsigned int B, unsigned int X)
+{
+  // sanity check:
+  if (in->P != P) {
+    printf("h326_restore: P %o != in->P %o\n",P,in->P); 
+  }
+  P = in->P;
+  A = in->A;
+  B = in->B;
+  X = in->X;
+};
+
 /** @brief process a json command enclosed in <>
  * <{"name":"H316 Front Panel Status","A":668,"B":1024}> (test data)
  */
@@ -279,7 +312,11 @@ void process_json_from_h316(char *inputx, int j)
   char sval[32]; // string
   const cJSON *a_ptr = NULL;
   const cJSON *name = NULL;
+  const cJSON *j_reg = NULL;
   char *status = NULL;
+  struct register_set save; // temp register save 
+
+  unsigned int pp,xx,aa,bb; // register working variables
 
   if (front_panel_char_count < 2)
     return; // check for short input
@@ -305,12 +342,12 @@ void process_json_from_h316(char *inputx, int j)
   }
   //  test for "Button:"
   cJSON *jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Button"); // find Button:
-  if (jptr_json2 != NULL) 
+  if (jptr_json2 != NULL)
   {
     // get values of Button:
     // 9/1/2026 - get object starts search in "child" link
     a_ptr = cJSON_GetObjectItemCaseSensitive(jptr_json2, "Name"); // find name
-    if (1) // (cJSON_IsString(a_ptr))
+    if (1)                                                        // (cJSON_IsString(a_ptr))
     {
       // copy string
       strcpy(sval, a_ptr->valuestring);
@@ -321,25 +358,46 @@ void process_json_from_h316(char *inputx, int j)
   }
   else
   {
-  //  test for "Registers:"
-  jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Registers"); // find Registers:
-  if (cJSON_IsString(jptr_json2) && (jptr_json2->valuestring != NULL))
-  {
-      printf("Registers found\n");
-  }
-  else goto end;
+    //  test for "Registers:"
+
+    jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Registers"); // find Registers:
+    if (jptr_json2 == NULL)                                                //(cJSON_IsString(jptr_json2) && (jptr_json2->valuestring != NULL))
+    {
+      goto end;
+    }
+    else
+    {
+      // access json array for reg names and values
+      // https://github.com/DaveGamble/cJSON#working-with-the-data-structure 
+      // {\"Registers\":[{\"A\":33424},{\"B\":0},{\"OP\":0},{\"P/Y\":66},{\"M-reg\":159}]}>"
+      cJSON_ArrayForEach(j_reg,jptr_json2)
+      {
+        //cJSON *j_reg2 = cJSON_GetObjectItemCaseSensitive(j_reg,"A");
+        //printf("j_reg -- j_reg2 = %lx -- %lx\n",j_reg,j_reg2);
+        printf("string, valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
+
+        if (strcmp(j_reg->child->string,"A") == 0) aa = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string,"M-reg") == 0) xx = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string,"B") == 0) bb = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string,"P/Y") == 0) pp = j_reg->child->valueint;
+        
+      }
+      printf("\n");
+      h316_save(&from_firmware,pp,aa,bb,xx);
+    }
   };
 end:
   cJSON_Delete(jptr_json);
   // check for nothing found
-  if ((status == NULL) || (sval[0] == 0) ) return;
+  if ((status == NULL) || (sval[0] == 0))
+    return;
   // enqueue item for main thread processing
   pthread_mutex_lock(&fifo_mutex);
   fifo_in(&fifo1, sval, 0);        // enqueue data
   pthread_cond_signal(&fifo_wait); // signal not empty
   pthread_mutex_unlock(&fifo_mutex);
   //
-  };
+};
 
 /** @brief: process json command to set A register
  *

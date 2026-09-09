@@ -155,6 +155,7 @@ const char *sim_config = "H316-PANEL.ini";
 
 static unsigned int P, A, B, X, atP;
 static unsigned int PCQ[32];
+static struct register_set from_firmware;
 
 int P_bits[16];
 int PC_indirect_bits[32];
@@ -510,6 +511,39 @@ int sim_go(PANEL *panel, const char *string, const char *device) /**************
   return (0);
 }
 
+int print_registers(struct register_set *in)
+{
+  printf("A = %6o, B= %6o, X = %6o, P = %6o \n", in->A, in->B, in->X, in->P);
+};
+
+int get_registers(struct register_set *in)
+{
+  unsigned int pp;
+  if (sim_panel_gen_examine(panel, "P", sizeof(pp), &pp))
+  {
+    printf("Error EXAMINE %s: %o\n", "P", sim_panel_get_error());
+  }
+  in->P = pp;
+  printf("get_registers P = %6o\n",pp);
+};
+
+int put_registers(struct register_set *out)
+{
+  unsigned int pp;
+  pp = out->P;
+  printf("put_registers P = %6o\n",pp);
+  if (sim_panel_gen_deposit(panel, "P", sizeof(pp), &pp))
+  {
+    printf("Error setting p to %06o: %s\n", pp, sim_panel_get_error());
+    // goto Done;
+  }
+};
+
+int restore_registers(struct register_set *in)
+{
+  P = in->P;  // set registers in frontpanelh316
+}
+
 int match_command(const char *command, const char *string, const char **arg)
 {
   int match_chars = 0;
@@ -668,6 +702,9 @@ int main(int argc, char **argv) /********** main ************************** */
   int display_count = 0;
   int n; // value returned from fifo
   int ctr = 0; //
+  struct register_set halt_registers; // value of registers when halted
+
+  struct register_set halt_state_registers;
 
   // new long running loop code 7/9/2026 BJD
 
@@ -698,7 +735,9 @@ int main(int argc, char **argv) /********** main ************************** */
           unsigned int Bpt_PC;
 
           usleep(100000); // delay
-
+          get_registers(&halt_state_registers); // get regs 1st time
+          print_registers(&halt_state_registers);
+          P = halt_state_registers.P;
           DisplayRegisters(panel, 1, 1);
           if (*haltmsg)
             printf("%s", haltmsg);
@@ -757,7 +796,16 @@ int main(int argc, char **argv) /********** main ************************** */
          case 1:
            printf("Start button pushed in Halt mode 1\n");  
            printf("Starting execution\n");
-             if (sim_panel_exec_run(panel)) // start execution w/o reset
+                   //
+        //  restore/set up 316 registers in the simulator
+        //  Note: the registers may have been changed via the front panel buttons
+        //        the register values may have changed since the last time-driven output
+        //
+        // h316_restore(&from_firmware,P,A,B,X);
+            put_registers(&halt_state_registers);
+           //h316_restore(&from_firmware,P,A,B,X);
+           put_registers(&halt_state_registers);
+          if (sim_panel_exec_run(panel)) // start execution w/o reset
              // if (sim_panel_exec_start(panel)) // start execution
                  goto Done;
 
@@ -824,7 +872,7 @@ int main(int argc, char **argv) /********** main ************************** */
             if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
               printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
             else
-              printf("%s: %08X\n", arg, value);
+              printf("%s: %08o\n", arg, value);
           }
           else if (match_command("HISTORY ", cmd, &arg))
           {
@@ -903,12 +951,15 @@ int main(int argc, char **argv) /********** main ************************** */
         // printf("Start message removed from fifo %s %d\n", xname, xval);
         printf("Start Button: pushed in run mode - halting SIMH\n");
         main_state = 0;                 // set up for console input
+
         if (sim_panel_exec_halt(panel)) // Event: Run button pushed
         {
           printf("Error halting simulator execution: %s\n", sim_panel_get_error());
           goto Done;
         }
         //
+        get_registers(&halt_state_registers); // get latest regs from simh
+        restore_registers(&halt_state_registers); // update regs in frontpanelh316
         send_json_regs(jsonbuf); // make sure we display the latest registers
         break;
   
