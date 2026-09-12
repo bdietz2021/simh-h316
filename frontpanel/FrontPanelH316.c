@@ -517,25 +517,79 @@ int print_registers(struct register_set *in)
   printf("A = %6o, B= %6o, X = %6o, P = %6o \n", in->A, in->B, in->X, in->P);
 };
 
+//
+//  get_registers queries the h316 simulator to get up-to-the-second register values
+//
 int get_registers(struct register_set *in)
 {
-  unsigned int pp;
-  if (sim_panel_gen_examine(panel, "P", sizeof(pp), &pp))
+  unsigned int temp;
+  //
+  if (sim_panel_gen_examine(panel, "P", sizeof(temp), &temp))
   {
     printf("Error EXAMINE %s: %o\n", "P", sim_panel_get_error());
   }
-  in->P = pp;
-  printf("get_registers P = %6o\n",pp);
+  in->P = temp;
+  printf("get_registers P = %6o\n",temp);
+  //
+  if (sim_panel_gen_examine(panel, "A", sizeof(temp), &temp))
+  {
+    printf("Error EXAMINE %s: %o\n", "A", sim_panel_get_error());
+  }
+  in->A = temp;
+  printf("get_registers A = %6o\n",temp);
+  //
+    if (sim_panel_gen_examine(panel, "B", sizeof(temp), &temp))
+  {
+    printf("Error EXAMINE %s: %o\n", "B", sim_panel_get_error());
+  }
+  in->B = temp;
+  printf("get_registers B = %6o\n",temp);
+  //
+    if (sim_panel_gen_examine(panel, "X", sizeof(temp), &temp))
+  {
+    printf("Error EXAMINE %s: %o\n", "X", sim_panel_get_error());
+  }
+  in->X = temp;
+  printf("get_registers X = %6o\n",temp);
+  // additional registers? C?
 };
 
+//
+//    put_registers sets the simh h316 registers
+//
 int put_registers(struct register_set *out)
 {
-  unsigned int pp;
-  pp = out->P;
-  printf("put_registers P = %6o\n",pp);
-  if (sim_panel_gen_deposit(panel, "P", sizeof(pp), &pp))
+  unsigned int temp;
+
+  temp = out->P;
+  printf("put_registers P = %6o\n",temp);
+  if (sim_panel_gen_deposit(panel, "P", sizeof(temp), &temp))
   {
-    printf("Error setting p to %06o: %s\n", pp, sim_panel_get_error());
+    printf("Error setting p to %06o: %s\n", temp, sim_panel_get_error());
+    // goto Done;
+  }
+  //
+   temp = out->A;
+  printf("put_registers A = %6o\n",temp);
+  if (sim_panel_gen_deposit(panel, "P", sizeof(temp), &temp))
+  {
+    printf("Error setting A to %06o: %s\n", temp, sim_panel_get_error());
+    // goto Done;
+  } 
+  //
+    temp = out->B;
+  printf("put_registers B = %6o\n",temp);
+  if (sim_panel_gen_deposit(panel, "B", sizeof(temp), &temp))
+  {
+    printf("Error setting B to %06o: %s\n", temp, sim_panel_get_error());
+    // goto Done;
+  }
+  //
+    temp = out->X;
+  printf("put_registers X = %6o\n",temp);
+  if (sim_panel_gen_deposit(panel, "X", sizeof(temp), &temp))
+  {
+    printf("Error setting X to %06o: %s\n", temp, sim_panel_get_error());
     // goto Done;
   }
 };
@@ -802,14 +856,13 @@ int main(int argc, char **argv) /********** main ************************** */
         //  Note: the registers may have been changed via the front panel buttons
         //        the register values may have changed since the last time-driven output
         //
-        // h316_restore(&from_firmware,P,A,B,X);
-            halt_state_registers.P = from_firmware.P; // temporary
-            put_registers(&halt_state_registers);
-           //h316_restore(&from_firmware,P,A,B,X);
-           put_registers(&halt_state_registers);
-          if (sim_panel_exec_run(panel)) // start execution w/o reset
-             // if (sim_panel_exec_start(panel)) // start execution
+           //  halt_state_registers.P = from_firmware.P; // temporary
+           h316_restore(&from_firmware,P,A,B,X); // sets registers in frontpanelh316
+           put_registers(&from_firmware);  // sets registers in simh h316
+          if (sim_panel_exec_run(panel)) { // start execution w/o reset
+             // if (sim_panel_exec_start(panel)) // start execution w/ reset
                  goto Done;
+          }
 
           break;
         case 3:  // SI button pushed in halt mode
