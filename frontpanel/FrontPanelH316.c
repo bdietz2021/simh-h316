@@ -51,6 +51,7 @@ Based on FrontPanelTest.c
 07/05/2026 - main program now waits for thread to read console input (mutex/wait)
 07/19/2026 - refactor the "forever" loop in main
 07/24/2026 - start button works - clean up code and printfs
+09/11/2026 - milestone: change P-register updates simh h316
 
    Copyright (c) 2015, Mark Pizzolato
 
@@ -802,6 +803,7 @@ int main(int argc, char **argv) /********** main ************************** */
         //        the register values may have changed since the last time-driven output
         //
         // h316_restore(&from_firmware,P,A,B,X);
+            halt_state_registers.P = from_firmware.P; // temporary
             put_registers(&halt_state_registers);
            //h316_restore(&from_firmware,P,A,B,X);
            put_registers(&halt_state_registers);
