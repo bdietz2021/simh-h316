@@ -156,7 +156,10 @@ const char *sim_config = "H316-PANEL.ini";
 
 static unsigned int P, A, B, X, atP;
 static unsigned int PCQ[32];
-static struct register_set from_firmware;
+// register values reported from front panel firmware
+// this is a combination of periodic values from simh
+// AND possible updates from pushbuttons
+static struct register_set from_frontpanel_firmware; // reported by frontpanel fw
 
 int P_bits[16];
 int PC_indirect_bits[32];
@@ -515,12 +518,15 @@ int sim_go(PANEL *panel, const char *string, const char *device) /**************
 int print_registers(struct register_set *in)
 {
   printf("A = %6o, B= %6o, X = %6o, P = %6o \n", in->A, in->B, in->X, in->P);
+  if ((in->P < 0100) || (in->P > 037777) ) {
+    printf("Error - P-register out of range\n");
+  }
 };
 
 //
 //  get_registers queries the h316 simulator to get up-to-the-second register values
 //
-int get_registers(struct register_set *in)
+int get_registers_from_simh(struct register_set *in)
 {
   unsigned int temp;
   //
@@ -552,6 +558,11 @@ int get_registers(struct register_set *in)
   in->X = temp;
   printf("get_registers X = %6o\n",temp);
   // additional registers? C?
+
+    if ((in->P < 0100) || (in->P > 037777) ) {
+    printf("get_registers: Error - P-register out of range\n");
+  }
+
 };
 
 //
@@ -561,6 +572,9 @@ int put_registers(struct register_set *out)
 {
   unsigned int temp;
 
+  if ((out->P < 0100) || (out->P > 037777) ) {
+    printf("Error - P-register out of range\n");
+  }
   temp = out->P;
   printf("put_registers P = %6o\n",temp);
   if (sim_panel_gen_deposit(panel, "P", sizeof(temp), &temp))
@@ -594,9 +608,14 @@ int put_registers(struct register_set *out)
   }
 };
 
+//  update register variables in FrontPanelH316.c program
+//  this is typically used to make local copies = copies in simh/h316
 int restore_registers(struct register_set *in)
 {
   P = in->P;  // set registers in frontpanelh316
+  A = in->A;
+  B = in->B;
+  X = in->X;
 }
 
 int match_command(const char *command, const char *string, const char **arg)
@@ -757,9 +776,8 @@ int main(int argc, char **argv) /********** main ************************** */
   int display_count = 0;
   int n; // value returned from fifo
   int ctr = 0; //
-  struct register_set halt_registers; // value of registers when halted
-
-  struct register_set halt_state_registers;
+  
+  static struct register_set halt_state_registers;
 
   // new long running loop code 7/9/2026 BJD
 
@@ -790,7 +808,7 @@ int main(int argc, char **argv) /********** main ************************** */
           unsigned int Bpt_PC;
 
           usleep(100000); // delay
-          get_registers(&halt_state_registers); // get regs 1st time
+          get_registers_from_simh(&halt_state_registers); // get regs 1st time
           print_registers(&halt_state_registers);
           P = halt_state_registers.P;
           DisplayRegisters(panel, 1, 1);
@@ -856,9 +874,9 @@ int main(int argc, char **argv) /********** main ************************** */
         //  Note: the registers may have been changed via the front panel buttons
         //        the register values may have changed since the last time-driven output
         //
-           //  halt_state_registers.P = from_firmware.P; // temporary
-           h316_restore(&from_firmware,P,A,B,X); // sets registers in frontpanelh316
-           put_registers(&from_firmware);  // sets registers in simh h316
+           //  halt_state_registers.P = from_frontpanel_firmware.P; // temporary
+           h316_restore(&from_frontpanel_firmware,P,A,B,X); // sets registers in frontpanelh316
+           put_registers(&from_frontpanel_firmware);  // sets registers in simh h316
           if (sim_panel_exec_run(panel)) { // start execution w/o reset
              // if (sim_panel_exec_start(panel)) // start execution w/ reset
                  goto Done;
@@ -1013,7 +1031,7 @@ int main(int argc, char **argv) /********** main ************************** */
           goto Done;
         }
         //
-        get_registers(&halt_state_registers); // get latest regs from simh
+        get_registers_from_simh(&halt_state_registers); // get latest regs from simh
         restore_registers(&halt_state_registers); // update regs in frontpanelh316
         send_json_regs(jsonbuf); // make sure we display the latest registers
         break;
