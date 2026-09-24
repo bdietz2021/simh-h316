@@ -82,7 +82,10 @@ static unsigned int B;
 static unsigned int X;
 static unsigned int atP;
 
-static struct register_set from_firmware;
+// register values reported from front panel firmware
+// this is a combination of periodic values from simh
+// AND possible updates from pushbuttons
+static struct register_set from_frontpanel_firmware; // reported by frontpanel fw
 
 int fifo_in(struct fifo *fwork,char *nin,int vin)
 {
@@ -277,7 +280,7 @@ void check_for_JSON(char *inbuf, int n)
   }
 };
 
-/** @brief save/restore key registers in emulatedd H316 */
+/** @brief save/restore key registers in FrontPanelH316.c  */
 void h316_save(struct register_set *out, unsigned int P, unsigned int A, unsigned int B, unsigned int X)
 {
   out->P = P;
@@ -292,7 +295,7 @@ void h316_restore(struct register_set *in, unsigned int P, unsigned int A, unsig
 {
   // sanity check:
   if (in->P != P) {
-    printf("h326_restore: P %o != in->P %o\n",P,in->P); 
+    printf("h316_restore: P %o != in->P %o\n",P,in->P); 
   }
   P = in->P;
   A = in->A;
@@ -383,7 +386,7 @@ void process_json_from_h316(char *inputx, int j)
         
       }
       printf("\n");
-      h316_save(&from_firmware,pp,aa,bb,xx);
+      h316_save(&from_frontpanel_firmware,pp,aa,bb,xx);
     }
   };
 end:

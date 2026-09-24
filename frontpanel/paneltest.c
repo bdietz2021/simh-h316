@@ -1,5 +1,6 @@
 //  paneltest.c     6/29/2026 - create .h file
 //  paneltestt.c    6/8/2026 RPi program to test H316 front panel
+//  9/24/2026 
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -56,6 +57,9 @@ int main(int argc, char **argv)
     }
     else {
         printf("input test - push buttons on h316 front panel\nctrl-c to exit\n");
+        /* send one message to turn off firmware test (the A++) */
+        sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+        write_to_async(strlen(jsonbuf), jsonbuf);
         while(1) ;
     }
 }
