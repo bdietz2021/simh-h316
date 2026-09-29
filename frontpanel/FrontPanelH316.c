@@ -154,7 +154,7 @@ const char *sim_config = "H316-PANEL.ini";
 
 /* Registers visible on the Front Panel */
 
-static unsigned int P, A, B, X, atP;
+static unsigned int P, A, B, X, atP, ST;
 static unsigned int PCQ[32];
 // register values reported from front panel firmware
 // this is a combination of periodic values from simh
@@ -196,7 +196,7 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
       buf4[sizeof(buf4) - 1] = 0;
   sprintf(buf1, "%4s P: %06o    @P: %06o\n", states[sim_panel_get_state(panel)],
           P, atP);
-  sprintf(buf2, "Instructions Executed: %lld\n", simulation_time);
+  sprintf(buf2, "Run Status: %d Instructions Executed: %lld\n", ST, simulation_time);
   sprintf(buf3, "A:%06o  B:%06o  X:%06o  \n", A, B, X);
 #if defined(_WIN32)
   if (1)
@@ -262,7 +262,7 @@ void send_json_regs(char jsonbuf[256])
   //  8/15/2025 - bug in H316 FW doesn't accept "RUN"
   /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
   /* compose JSON-formatted register contents message */
-  sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+  sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Status\":%d}>", A, B, X, P, ST);
   // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
   // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Run\":%s}>", A, B, X, P,
   //   states[sim_panel_get_state(panel)]);
@@ -385,7 +385,7 @@ int panel_setup() /* called from main() */
     printf("Error adding register 'P': %s\n", sim_panel_get_error());
     goto Done;
   }
-  // restire atP to be the instruction at the P register
+  // register atP to be the instruction at the P register
   if (sim_panel_add_register_indirect(panel, "P", NULL, sizeof(atP), &atP))
   {
     printf("Error adding register indirect 'P': %s\n", sim_panel_get_error());
@@ -534,35 +534,37 @@ int get_registers_from_simh(struct register_set *in)
   {
     printf("Error EXAMINE %s: %o\n", "P", sim_panel_get_error());
   }
+  printf("get_registers_from_simh: ");
+
   in->P = temp;
-  printf("get_registers P = %6o\n",temp);
+  printf(" P = %6o ",temp);
   //
   if (sim_panel_gen_examine(panel, "A", sizeof(temp), &temp))
   {
     printf("Error EXAMINE %s: %o\n", "A", sim_panel_get_error());
   }
   in->A = temp;
-  printf("get_registers A = %6o\n",temp);
+  printf(" A = %6o",temp);
   //
     if (sim_panel_gen_examine(panel, "B", sizeof(temp), &temp))
   {
     printf("Error EXAMINE %s: %o\n", "B", sim_panel_get_error());
   }
   in->B = temp;
-  printf("get_registers B = %6o\n",temp);
+  printf(" B = %6o ",temp);
   //
     if (sim_panel_gen_examine(panel, "X", sizeof(temp), &temp))
   {
     printf("Error EXAMINE %s: %o\n", "X", sim_panel_get_error());
   }
   in->X = temp;
-  printf("get_registers X = %6o\n",temp);
+  printf(" X = %6o ",temp);
   // additional registers? C?
 
     if ((in->P < 0100) || (in->P > 037777) ) {
     printf("get_registers: Error - P-register out of range\n");
   }
-
+  printf("\n");
 };
 
 //
@@ -575,8 +577,10 @@ int put_registers(struct register_set *out)
   if ((out->P < 0100) || (out->P > 037777) ) {
     printf("Error - P-register out of range\n");
   }
+  printf("put_registers: ");
+
   temp = out->P;
-  printf("put_registers P = %6o\n",temp);
+  printf(" P = %6o ",temp);
   if (sim_panel_gen_deposit(panel, "P", sizeof(temp), &temp))
   {
     printf("Error setting p to %06o: %s\n", temp, sim_panel_get_error());
@@ -584,7 +588,7 @@ int put_registers(struct register_set *out)
   }
   //
    temp = out->A;
-  printf("put_registers A = %6o\n",temp);
+  printf(" A = %6o ",temp);
   if (sim_panel_gen_deposit(panel, "A", sizeof(temp), &temp))
   {
     printf("Error setting A to %06o: %s\n", temp, sim_panel_get_error());
@@ -592,7 +596,7 @@ int put_registers(struct register_set *out)
   } 
   //
     temp = out->B;
-  printf("put_registers B = %6o\n",temp);
+  printf(" B = %6o ",temp);
   if (sim_panel_gen_deposit(panel, "B", sizeof(temp), &temp))
   {
     printf("Error setting B to %06o: %s\n", temp, sim_panel_get_error());
@@ -600,12 +604,13 @@ int put_registers(struct register_set *out)
   }
   //
     temp = out->X;
-  printf("put_registers X = %6o\n",temp);
+  printf(" X = %6o",temp);
   if (sim_panel_gen_deposit(panel, "X", sizeof(temp), &temp))
   {
     printf("Error setting X to %06o: %s\n", temp, sim_panel_get_error());
     // goto Done;
   }
+  printf("\n");
 };
 
 //  update register variables in FrontPanelH316.c program
