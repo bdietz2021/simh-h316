@@ -291,16 +291,16 @@ void h316_save(struct register_set *out, unsigned int P, unsigned int A, unsigne
 
 
 /** @brief save/restore key registers in emulatedd H316 */
-void h316_restore(struct register_set *in, unsigned int P, unsigned int A, unsigned int B, unsigned int X)
+void h316_restore(struct register_set *in, unsigned int *P, unsigned int *A, unsigned int *B, unsigned int *X)
 {
   // sanity check:
-  if (in->P != P) {
+  if (in->P != *P) {
     printf("h316_restore: P %o != in->P %o\n",P,in->P); 
   }
-  P = in->P;
-  A = in->A;
-  B = in->B;
-  X = in->X;
+  *P = in->P;
+  *A = in->A;
+  *B = in->B;
+  *X = in->X;
 };
 
 /** @brief process a json command enclosed in <>
@@ -377,7 +377,7 @@ void process_json_from_h316(char *inputx, int j)
       {
         //cJSON *j_reg2 = cJSON_GetObjectItemCaseSensitive(j_reg,"A");
         //printf("j_reg -- j_reg2 = %lx -- %lx\n",j_reg,j_reg2);
-        printf("string, valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
+        printf("from_firmware: , valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
 
         if (strcmp(j_reg->child->string,"A") == 0) aa = j_reg->child->valueint;
         else if (strcmp(j_reg->child->string,"M-reg") == 0) xx = j_reg->child->valueint;

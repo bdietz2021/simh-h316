@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h> 
 //
 
 #include "async.h" // BJD async library
@@ -28,7 +29,7 @@ int main(int argc, char **argv)
     int delay = 150;
     int i;
 
-    int A, B, X, P;
+    int A, B, X, P, ST;
     A = 1;
     B = 2;
     X = 3;
@@ -45,14 +46,16 @@ int main(int argc, char **argv)
             //  8/15/2025 - bug in H316 FW doesn't accept "RUN"
             /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
             /* compose JSON-formatted register contents message */
-            sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+            ST = i & 7;
+            sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Status\":%d}>", A, B, X, P, ST);
             // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d,\"Run\":%s}>", A, B, X, P,
             //   states[sim_panel_get_state(panel)]);
             write_to_async(strlen(jsonbuf), jsonbuf);
+            printf("Sent: %s\n",jsonbuf);
             A = A >> 1;
             if ((A & 0xffff) == 0)
                 A = 0x8000;
-            nanosleep(&req, &rem);
+            sleep(5); // nanosleep(&req, &rem);
         }
     }
     else {
@@ -60,6 +63,7 @@ int main(int argc, char **argv)
         /* send one message to turn off firmware test (the A++) */
         sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
         write_to_async(strlen(jsonbuf), jsonbuf);
+        printf("Sent: %s\n",jsonbuf);
         while(1) ;
     }
 }
