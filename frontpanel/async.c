@@ -280,28 +280,6 @@ void check_for_JSON(char *inbuf, int n)
   }
 };
 
-/** @brief save/restore key registers in FrontPanelH316.c  */
-void h316_save(struct register_set *out, unsigned int P, unsigned int A, unsigned int B, unsigned int X)
-{
-  out->P = P;
-  out->A = A;
-  out->B = B;
-  out->X = X;
-};
-
-
-/** @brief save/restore key registers in emulatedd H316 */
-void h316_restore(struct register_set *in, unsigned int *P, unsigned int *A, unsigned int *B, unsigned int *X)
-{
-  // sanity check:
-  if (in->P != *P) {
-    printf("h316_restore: P %o != in->P %o\n",P,in->P); 
-  }
-  *P = in->P;
-  *A = in->A;
-  *B = in->B;
-  *X = in->X;
-};
 
 /** @brief process a json command enclosed in <>
  * <{"name":"H316 Front Panel Status","A":668,"B":1024}> (test data)
@@ -319,7 +297,7 @@ void process_json_from_h316(char *inputx, int j)
   char *status = NULL;
   struct register_set save; // temp register save 
 
-  unsigned int pp,xx,aa,bb; // register working variables
+  // unsigned int pp,xx,aa,bb; // register working variables
 
   if (front_panel_char_count < 2)
     return; // check for short input
@@ -328,7 +306,7 @@ void process_json_from_h316(char *inputx, int j)
   json_start = strchr(inputx, '{'); // find start of JSON string
   if (json_start == NULL)
   {
-    printf("inputx = %s\n", inputx);
+    printf("Non-json input = %s\n", inputx);
     return; // msg doesn't contain {
   }
   // process json message to find key fields
@@ -377,16 +355,16 @@ void process_json_from_h316(char *inputx, int j)
       {
         //cJSON *j_reg2 = cJSON_GetObjectItemCaseSensitive(j_reg,"A");
         //printf("j_reg -- j_reg2 = %lx -- %lx\n",j_reg,j_reg2);
-        printf("from_firmware: , valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
+        // printf("from_firmware: , valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
 
-        if (strcmp(j_reg->child->string,"A") == 0) aa = j_reg->child->valueint;
-        else if (strcmp(j_reg->child->string,"M-reg") == 0) xx = j_reg->child->valueint;
-        else if (strcmp(j_reg->child->string,"B") == 0) bb = j_reg->child->valueint;
-        else if (strcmp(j_reg->child->string,"P/Y") == 0) pp = j_reg->child->valueint;
+        if (strcmp(j_reg->child->string,"A") == 0) A = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string,"M-reg") == 0) X = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string,"B") == 0) B = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string,"P/Y") == 0) P = j_reg->child->valueint;
         
       }
-      printf("\n");
-      h316_save(&from_frontpanel_firmware,pp,aa,bb,xx);
+      // printf("\n");
+      // h316_save(&from_frontpanel_firmware,pp,aa,bb,xx);
     }
   };
 end:

@@ -620,13 +620,25 @@ int put_registers(struct register_set *out)
 
 //  update register variables in FrontPanelH316.c program
 //  this is typically used to make local copies = copies in simh/h316
-int restore_registers(struct register_set *in)
+int h316_restore(struct register_set *in)
 {
+    // sanity check:
+  // if (in->P != *P) {
+  //   printf("h316_restore: P %o != in->P %o\n",P,in->P); 
   P = in->P;  // set registers in frontpanelh316
   A = in->A;
   B = in->B;
   X = in->X;
 }
+
+/** @brief save/restore key registers in FrontPanelH316.c  */
+void h316_save(struct register_set *out, unsigned int P, unsigned int A, unsigned int B, unsigned int X)
+{
+  out->P = P;
+  out->A = A;
+  out->B = B;
+  out->X = X;
+};
 
 int match_command(const char *command, const char *string, const char **arg)
 {
@@ -821,7 +833,7 @@ int main(int argc, char **argv) /********** main ************************** */
           get_registers_from_simh(&halt_state_registers); // get regs 1st time
           print_registers(&halt_state_registers);
           P = halt_state_registers.P;
-          restore_registers(&halt_state_registers);
+          h316_restore(&halt_state_registers);
           DisplayRegisters(panel, 1, 1);
           if (*haltmsg)
             printf("%s", haltmsg);
@@ -868,7 +880,7 @@ int main(int argc, char **argv) /********** main ************************** */
            //        the register values may have changed since the last time-driven output
           ST = 3; // be sure to turn on START + RUN LEDs
            // halt_state_registers.P = from_frontpanel_firmware.P; // temporary ???
-           h316_restore(&halt_state_registers, &P, &A, &B, &X);     // sets registers in frontpanelh316
+           h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
            put_registers(&halt_state_registers); // sets registers in simh h316
 
            if (sim_panel_exec_start(panel))
@@ -888,13 +900,14 @@ int main(int argc, char **argv) /********** main ************************** */
            ST = 4;                              // turn on  SI LED
           //  halt_state_registers.P = from_frontpanel_firmware.P; // temporary
           get_registers_from_simh(&halt_state_registers);
-           h316_restore(&halt_state_registers, &P, &A, &B, &X);     // sets registers in frontpanelh316
+           h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
+           // BUG: what if registers have been modified via pushbuttons since last halt?
            // put_registers(&halt_state_registers); // sets registers in simh h316
            if (sim_panel_exec_step(panel))
              printf("Step Error\n");
             // get registers from simh/h316 / send to front panel 
             get_registers_from_simh(&halt_state_registers); // get regs 
-           h316_restore(&halt_state_registers, &P, &A, &B, &X);     // sets registers in frontpanelh316
+           h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
            send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
            break;
          case 4:
@@ -938,14 +951,15 @@ int main(int argc, char **argv) /********** main ************************** */
            else if (match_command("STEP", cmd, NULL))
            {
             ST = 4;                              // turn on  SI LED
-            halt_state_registers.P = from_frontpanel_firmware.P; // temporary
-            h316_restore(&halt_state_registers, &P, &A, &B, &X);     // sets registers in frontpanelh316
-            put_registers(&halt_state_registers); // sets registers in simh h316 
+            // halt_state_registers.P = from_frontpanel_firmware.P; // temporary
+          get_registers_from_simh(&halt_state_registers);
+           h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
+           // BUG: what if registers have been modified via pushbuttons since last halt?
             if (sim_panel_exec_step(panel))
                break;
                // add code to retrieve register values from simh/h316, restore to frontpaneh316, and send to firmware via json
               get_registers_from_simh(&halt_state_registers); // get regs 
-              h316_restore(&halt_state_registers, &P, &A, &B, &X);     // sets registers in frontpanelh316
+              h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
               send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
               }
            else if (match_command("GO", cmd, &arg))
@@ -1053,7 +1067,7 @@ int main(int argc, char **argv) /********** main ************************** */
         }
         //
         get_registers_from_simh(&halt_state_registers); // get latest regs from simh
-        restore_registers(&halt_state_registers); // update regs in frontpanelh316
+        h316_restore(&halt_state_registers); // update regs in frontpanelh316
         send_json_regs(jsonbuf); // make sure we display the latest registers
         break;
   
