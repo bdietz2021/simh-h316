@@ -1,5 +1,5 @@
 #pragma once
-static void send_json_regs(char jsonbuf[256]);
+static void send_json_regs();
 
 void super_get_input_event();
 

@@ -173,6 +173,8 @@ unsigned long long simulation_time;
 
 int update_display = 1;
 int debug = 0;
+  
+static struct register_set halt_state_registers;
 
 
 static void DisplayCallback(PANEL *panel, unsigned long long sim_time,
@@ -246,7 +248,7 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
     printf("%s", buf1);
     printf("%s", buf2);
     printf("%s", buf3);
-    send_json_regs(jsonbuf);
+    send_json_regs();
 #if defined(BJD_HAVE_NCURSES)
     if (set_pos)
 
@@ -261,8 +263,10 @@ static void DisplayRegisters(PANEL *panel, int get_pos, int set_pos)
 #endif
 }
 
-void send_json_regs(char jsonbuf[256])  // update registers on hw front panel
+void send_json_regs()  // update registers on hw front panel
 {
+  char jsonbuf[256];
+
   /*	send message to H316 front panel via async port */
   //  8/15/2025 - bug in H316 FW doesn't accept "RUN"
   /* sprintf(buf3, "A:%08o  B:%08o  X:%08o  \n", A, B, X); */
@@ -700,6 +704,113 @@ struct execution_breakpoint
      "SHOW HIST=10; EX SYSD STATE"},
     {0x0, NULL}};
 
+    //
+    //* @brief:  process_operator_cmd() process operator command 
+    //
+int process_operator_cmd(int button_code, int len, char cmd[])
+{
+   const char* arg;
+
+  if (!get_input_event(cmd, (len - 1))) // get command from stdin/operator
+  {
+    printf("default case in Halt mode. No input. button_code = %d\n", button_code);
+    return (-2);
+  }
+
+  while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
+    cmd[strlen(cmd) - 1] = '\0';
+
+  DisplayRegisters(panel, 1, 1);
+  if (strcmp("Input_waiting", cmd) == 0)
+  {
+    process_front_panel_input(cmd); // a button was pushed
+    // main_state = 0;
+    return (-3);
+  }
+  else if (match_command("BOOT", cmd, &arg))
+  {
+    if (sim_panel_exec_boot(panel, arg))
+      return (-2);
+  }
+  else if (match_command("BREAK ", cmd, &arg))
+  {
+    if (sim_panel_break_set(panel, arg))
+      printf("Error Setting Breakpoint '%s': %s\n", arg, sim_panel_get_error());
+  }
+  else if (match_command("NOBREAK ", cmd, &arg))
+  {
+    if (sim_panel_break_clear(panel, arg))
+      printf("Error Clearing Breakpoint '%s': %s\n", arg, sim_panel_get_error());
+  }
+  else if (match_command("STEP", cmd, NULL))
+  {
+    ST = 4; // turn on  SI LED
+    // halt_state_registers.P = from_frontpanel_firmware.P; // temporary
+    get_registers_from_simh(&halt_state_registers);
+    h316_restore(&halt_state_registers); // sets registers in frontpanelh316
+                                         // BUG: what if registers have been modified via pushbuttons since last halt?
+    if (sim_panel_exec_step(panel))
+      return(-1); // done
+    // add code to retrieve register values from simh/h316, restore to frontpaneh316, and send to firmware via json
+    get_registers_from_simh(&halt_state_registers); // get regs
+    h316_restore(&halt_state_registers);            // sets registers in frontpanelh316
+    send_json_regs();                        // Event: time make sure we display the latest registers
+  }
+  else if (match_command("GO", cmd, &arg))
+  { /* go p 33000 */
+    ST = 3; // be sure to turn on START + RUN LEDs
+    if (sim_go(panel, arg, NULL))
+      return(-2);
+  }
+  else if (match_command("CONT", cmd, NULL))
+  {
+    if (sim_panel_exec_run(panel)) // CONT - no reset of simulator
+    // main_state = 3; //
+    return(-2);
+  }
+  else if (match_command("EXAMINE ", cmd, &arg))
+  {
+    int value;
+
+    if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
+      printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
+    else
+      printf("%s: %08o\n", arg, value);
+  }
+  else if (match_command("HISTORY ", cmd, &arg))
+  {
+    char history[10240];
+    int count = atoi(arg);
+
+    history[sizeof(history) - 1] = '\0';
+    if (sim_panel_get_history(panel, count, sizeof(history) - 1, history))
+      printf("Error retrieving instruction history: %s\n", sim_panel_get_error());
+    else
+      printf("%s\n", history);
+  }
+  else if (match_command("DEBUG ", cmd, &arg))
+  {
+    if (arg[0] == '-')
+    {
+      if (sim_panel_device_debug_mode(panel, NULL, 1, arg))
+        printf("Error setting debug mode: %s\n", sim_panel_get_error());
+    }
+    else
+    {
+      if (sim_panel_device_debug_mode(panel, arg, 1, NULL))
+        printf("Error setting debug mode: %s\n", sim_panel_get_error());
+    }
+  }
+  else if ((match_command("EXIT", cmd, NULL)) || (match_command("QUIT", cmd, NULL)))
+    return (-1); // exit
+  else
+  {
+    DisplayRegisters(panel, 1, 1); // final parm 1 = restore cursor posn
+    printf("Huh? %s\r\n", cmd);
+  }
+  return (0);
+};
+
 int main(int argc, char **argv) /********** main ************************** */
 {
     int run_state = 0;  // Run vs. Halt (enum)
@@ -793,8 +904,6 @@ int main(int argc, char **argv) /********** main ************************** */
   int display_count = 0;
   int n; // value returned from fifo
   int ctr = 0; //
-  
-  static struct register_set halt_state_registers;
 
 //
 //  "forever loop" as long as FrontPanelH316 is running
@@ -908,112 +1017,27 @@ int main(int argc, char **argv) /********** main ************************** */
             // get registers from simh/h316 / send to front panel 
             get_registers_from_simh(&halt_state_registers); // get regs 
            h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
-           send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
+           send_json_regs(); // Event: time make sure we display the latest registers
            break;
          case 4:
            printf("MA button pushed in Halt Mode\n");
                      ST = 8; // turn on  MA LED
                                  get_registers_from_simh(&halt_state_registers); // get regs 
-           send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
+           send_json_regs(); // Event: time make sure we display the latest registers
            break;
          default:
-           if (!get_input_event(cmd, sizeof(cmd) - 1)) // get command from stdin/operator
-           {
-             printf("default case in Halt mode. No input. button_code = %d\n", button_code);
-             break;
-           }
+            // - check for operator command
+            switch (process_operator_cmd(button_code,sizeof(cmd),cmd))
+            {
+            case -1:
+              goto Done;  // exit/quit command
+            case -3:
+              main_state = 0;
+              break;
+            default:
+              break;  // general return
+            }
 
-           while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
-             cmd[strlen(cmd) - 1] = '\0';
-
-           DisplayRegisters(panel, 1, 1);
-           if (strcmp("Input_waiting", cmd) == 0)
-           {
-             process_front_panel_input(cmd); // a button was pushed
-             main_state = 0;
-             break;
-           }
-           else if (match_command("BOOT", cmd, &arg))
-           {
-             if (sim_panel_exec_boot(panel, arg))
-               break;
-           }
-           else if (match_command("BREAK ", cmd, &arg))
-           {
-             if (sim_panel_break_set(panel, arg))
-               printf("Error Setting Breakpoint '%s': %s\n", arg, sim_panel_get_error());
-           }
-           else if (match_command("NOBREAK ", cmd, &arg))
-           {
-             if (sim_panel_break_clear(panel, arg))
-               printf("Error Clearing Breakpoint '%s': %s\n", arg, sim_panel_get_error());
-           }
-           else if (match_command("STEP", cmd, NULL))
-           {
-            ST = 4;                              // turn on  SI LED
-            // halt_state_registers.P = from_frontpanel_firmware.P; // temporary
-          get_registers_from_simh(&halt_state_registers);
-           h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
-           // BUG: what if registers have been modified via pushbuttons since last halt?
-            if (sim_panel_exec_step(panel))
-               break;
-               // add code to retrieve register values from simh/h316, restore to frontpaneh316, and send to firmware via json
-              get_registers_from_simh(&halt_state_registers); // get regs 
-              h316_restore(&halt_state_registers);     // sets registers in frontpanelh316
-              send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
-              }
-           else if (match_command("GO", cmd, &arg))
-           { /* go p 33000 */
-             if (sim_go(panel, arg, NULL))
-               break;
-           }
-           else if (match_command("CONT", cmd, NULL))
-           {
-             if (sim_panel_exec_run(panel)) // CONT - no reset of simulator
-               break;
-             main_state = 3; //
-             break;
-           }
-           else if (match_command("EXAMINE ", cmd, &arg))
-           {
-             int value;
-
-             if (sim_panel_gen_examine(panel, arg, sizeof(value), &value))
-               printf("Error EXAMINE %s: %s\n", arg, sim_panel_get_error());
-             else
-               printf("%s: %08o\n", arg, value);
-           }
-           else if (match_command("HISTORY ", cmd, &arg))
-           {
-             char history[10240];
-             int count = atoi(arg);
-
-             history[sizeof(history) - 1] = '\0';
-             if (sim_panel_get_history(panel, count, sizeof(history) - 1, history))
-               printf("Error retrieving instruction history: %s\n", sim_panel_get_error());
-             else
-               printf("%s\n", history);
-           }
-           else if (match_command("DEBUG ", cmd, &arg))
-           {
-             if (arg[0] == '-')
-             {
-               if (sim_panel_device_debug_mode(panel, NULL, 1, arg))
-                 printf("Error setting debug mode: %s\n", sim_panel_get_error());
-             }
-             else
-             {
-               if (sim_panel_device_debug_mode(panel, arg, 1, NULL))
-                 printf("Error setting debug mode: %s\n", sim_panel_get_error());
-             }
-           }
-           else if ((match_command("EXIT", cmd, NULL)) || (match_command("QUIT", cmd, NULL)))
-             goto Done;
-           else
-           {
-             DisplayRegisters(panel, 1, 1); // final parm 1 = restore cursor posn
-             printf("Huh? %s\r\n", cmd);
-           }
          } // end switch
 
         main_state = 0; // back to normal
@@ -1068,12 +1092,12 @@ int main(int argc, char **argv) /********** main ************************** */
         //
         get_registers_from_simh(&halt_state_registers); // get latest regs from simh
         h316_restore(&halt_state_registers); // update regs in frontpanelh316
-        send_json_regs(jsonbuf); // make sure we display the latest registers
+        send_json_regs(); // make sure we display the latest registers
         break;
   
       case 0:
 
-        send_json_regs(jsonbuf); // Event: time make sure we display the latest registers
+        send_json_regs(); // Event: time make sure we display the latest registers
         break;
         default:
             printf("Unidentified message removed from fifo %s %d\n", xname, xval);
@@ -1090,7 +1114,9 @@ Done:
   /* Get rid of pseudo config file created earlier */
   (void)remove(sim_config);
 }
-
+//
+// suspected Dead Code
+//
 void super_get_input_event()
 {
   // process operator command in Halt state
