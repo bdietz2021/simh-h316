@@ -321,21 +321,35 @@ void process_json_from_h316(char *inputx, int j)
     status = NULL;
     goto end;
   }
+  //
+  //  debug
+  //
+  //   char *junkx = cJSON_Print(jptr_json);  // output all objects as text
+  // printf("---%s", junkx);
+  //
+
   //  test for "Button:"
   cJSON *jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Button"); // find Button:
   if (jptr_json2 != NULL)
   {
     // get values of Button:
     // 9/1/2026 - get object starts search in "child" link
-    a_ptr = cJSON_GetObjectItemCaseSensitive(jptr_json2, "Name"); // find name
-    if (1)                                                        // (cJSON_IsString(a_ptr))
+    //jptr_json2 = jptr_json->child;
+    a_ptr = cJSON_GetObjectItemCaseSensitive(jptr_json, "Name"); // find name
+    if (a_ptr != NULL)                                                         // (cJSON_IsString(a_ptr))
     {
       // copy string
       strcpy(sval, a_ptr->valuestring);
       status = (char *)a_ptr->valuestring; // return address of
-      goto end;
+      // goto end;
     }
-    // end found button
+    cJSON *jptr_json3 = cJSON_GetObjectItemCaseSensitive(jptr_json, "State"); // find state
+    if (jptr_json3 != NULL) 
+    {
+      ival = jptr_json3->valueint;
+    }
+    goto end;
+    // end found button/state
   }
   else
   {
@@ -374,7 +388,7 @@ end:
     return;
   // enqueue item for main thread processing
   pthread_mutex_lock(&fifo_mutex);
-  fifo_in(&fifo1, sval, 0);        // enqueue data
+  fifo_in(&fifo1, sval, ival);        // enqueue data
   pthread_cond_signal(&fifo_wait); // signal not empty
   pthread_mutex_unlock(&fifo_mutex);
   //

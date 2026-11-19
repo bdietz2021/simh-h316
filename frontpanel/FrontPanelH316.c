@@ -955,7 +955,7 @@ int main(int argc, char **argv) /********** main ************************** */
     while ((run_state = sim_panel_get_state(panel)) == Halt ) // inner halt loop
     {
 
-      // halt state awaiting SIM> response
+      // halt state awaiting SIM> response or button push
               // process operator command in Halt state
         char xname[16];
         int xval; // dummy parms
@@ -983,7 +983,11 @@ int main(int argc, char **argv) /********** main ************************** */
            // printf("Display Update\n");
            break;
          case 1:
-           printf("Start button pushed in Halt mode 1\n");
+           printf("Start button pushed in Halt mode %d\n",xval);
+
+          // switch on sval - the START button state
+
+
            //  restore/set up 316 registers in the simulator
            //  Note: the registers may have been changed via the front panel buttons
            //        the register values may have changed since the last time-driven output
