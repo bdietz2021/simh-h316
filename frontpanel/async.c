@@ -155,9 +155,9 @@ int option = 0;
 int fd;	// file descriptor
 
 // JSON input data
-int front_panel_input;  // flag for data available
-int front_panel_char_count;
-char front_panel_buff[256];
+static int front_panel_input;  // flag for data available
+static int front_panel_char_count;
+static char front_panel_buff[256];
 void check_for_JSON(char* ,int );
 void process_json_from_h316(char* ,int );
 char* status_reg(const char *const , char[], int , char[] );
@@ -178,6 +178,7 @@ int nchars;
 		if (nchars > 0) {
         //  write(1,buff,nchars);  // echo data on console
          check_for_JSON(buff,nchars);
+         
          // unlock
         // pthread_cond_signal(&fifo_wait);
       }
@@ -265,11 +266,15 @@ void check_for_JSON(char *inbuf, int n)
 {
   if (inbuf[n - 1] == '\n')
   {
-   if (async_debug != 0)
-    {
-      write(1, front_panel_buff, front_panel_char_count); // echo data on console
-      write(1, "\n", 1);
-    }
+   // if (async_debug != 0)
+    // {
+    //   write(1, front_panel_buff, front_panel_char_count); // echo data on console
+    //   write(1, "\n", 1);
+    // }
+
+    // print option to trace all input
+    // printf("--check_for_json cc = %d bf = %s\n",front_panel_char_count,front_panel_buff);
+
     front_panel_buff[front_panel_char_count + 1] = 0;       // insure null termination
     process_json_from_h316(front_panel_buff, front_panel_char_count); // process accumulated chars
     front_panel_char_count = 0;
@@ -299,14 +304,14 @@ void process_json_from_h316(char *inputx, int j)
 
   // unsigned int pp,xx,aa,bb; // register working variables
 
-  if (front_panel_char_count < 2)
+  if (j < 2)
     return; // check for short input
 
   // look for enclosing '{' }
   json_start = strchr(inputx, '{'); // find start of JSON string
   if (json_start == NULL)
   {
-    printf("Non-json input = %s\n", inputx);
+    printf("msg doesn't contain { = %s -n = %d\n", inputx,j);
     return; // msg doesn't contain {
   }
   // process json message to find key fields
@@ -321,30 +326,17 @@ void process_json_from_h316(char *inputx, int j)
     status = NULL;
     goto end;
   }
-  //
-  //  debug
-  //
-  //   char *junkx = cJSON_Print(jptr_json);  // output all objects as text
-  // printf("---%s", junkx);
-  //
 
   //  test for "Button:"
   cJSON *jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Button"); // find Button:
   if (jptr_json2 != NULL)
   {
     // get values of Button:
-    // 9/1/2026 - get object starts search in "child" link
-    //jptr_json2 = jptr_json->child;
-    a_ptr = cJSON_GetObjectItemCaseSensitive(jptr_json, "Name"); // find name
-    if (a_ptr != NULL)                                                         // (cJSON_IsString(a_ptr))
-    {
-      // copy string
-      strcpy(sval, a_ptr->valuestring);
-      status = (char *)a_ptr->valuestring; // return address of
-      // goto end;
-    }
+    strcpy(sval, jptr_json2->valuestring);
+    status = (char *)jptr_json2->valuestring; // return address of
+
     cJSON *jptr_json3 = cJSON_GetObjectItemCaseSensitive(jptr_json, "State"); // find state
-    if (jptr_json3 != NULL) 
+    if (jptr_json3 != NULL)
     {
       ival = jptr_json3->valueint;
     }
@@ -354,7 +346,6 @@ void process_json_from_h316(char *inputx, int j)
   else
   {
     //  test for "Registers:"
-
     jptr_json2 = cJSON_GetObjectItemCaseSensitive(jptr_json, "Registers"); // find Registers:
     if (jptr_json2 == NULL)                                                //(cJSON_IsString(jptr_json2) && (jptr_json2->valuestring != NULL))
     {
@@ -363,19 +354,22 @@ void process_json_from_h316(char *inputx, int j)
     else
     {
       // access json array for reg names and values
-      // https://github.com/DaveGamble/cJSON#working-with-the-data-structure 
+      // https://github.com/DaveGamble/cJSON#working-with-the-data-structure
       // {\"Registers\":[{\"A\":33424},{\"B\":0},{\"OP\":0},{\"P/Y\":66},{\"M-reg\":159}]}>"
-      cJSON_ArrayForEach(j_reg,jptr_json2)
+      cJSON_ArrayForEach(j_reg, jptr_json2)
       {
-        //cJSON *j_reg2 = cJSON_GetObjectItemCaseSensitive(j_reg,"A");
-        //printf("j_reg -- j_reg2 = %lx -- %lx\n",j_reg,j_reg2);
-        // printf("from_firmware: , valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
+        // cJSON *j_reg2 = cJSON_GetObjectItemCaseSensitive(j_reg,"A");
+        // printf("j_reg -- j_reg2 = %lx -- %lx\n",j_reg,j_reg2);
+        //  printf("from_firmware: , valueint %s = %o %o / ",j_reg->child->string,j_reg->child->valueint);
 
-        if (strcmp(j_reg->child->string,"A") == 0) A = j_reg->child->valueint;
-        else if (strcmp(j_reg->child->string,"M-reg") == 0) X = j_reg->child->valueint;
-        else if (strcmp(j_reg->child->string,"B") == 0) B = j_reg->child->valueint;
-        else if (strcmp(j_reg->child->string,"P/Y") == 0) P = j_reg->child->valueint;
-        
+        if (strcmp(j_reg->child->string, "A") == 0)
+          A = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string, "M-reg") == 0)
+          X = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string, "B") == 0)
+          B = j_reg->child->valueint;
+        else if (strcmp(j_reg->child->string, "P/Y") == 0)
+          P = j_reg->child->valueint;
       }
       // printf("\n");
       // h316_save(&from_frontpanel_firmware,pp,aa,bb,xx);
