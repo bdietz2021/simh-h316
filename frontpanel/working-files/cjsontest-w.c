@@ -56,6 +56,7 @@ void readJSONFile(const char *filename) {
 void write_json_to_file(const char *filename)
 {                                       // example for h316 firmware
     cJSON *json = cJSON_CreateObject(); // empty top-level object
+
     cJSON *ptr;                         // work pointer
     cJSON *ptr2;                        // work pointer
     cJSON *ptr3;                        // work pointer
@@ -66,8 +67,8 @@ void write_json_to_file(const char *filename)
     int wint2 = 15;
 
     ptr = cJSON_AddStringToObject(json, "Button", "Start"); // report button press
-    cJSON_AddNumberToObject(ptr, "State", 123456);
-    cJSON_AddNumberToObject(ptr, "Value", 000000);
+    cJSON_AddNumberToObject(json, "State", 123456);
+    cJSON_AddNumberToObject(json, "Value", 000000);
 
 
 printf("%s\n",cJSON_Print(json));

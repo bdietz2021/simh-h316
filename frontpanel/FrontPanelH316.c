@@ -969,7 +969,7 @@ int main(int argc, char **argv) /********** main ************************** */
          // printf("top wait run_state = %d\n", run_state);
           pthread_cond_wait(&fifo_wait, &fifo_mutex); // wait for signal
         }
-        if (fifo_out(&fifo1, xname, &xval) == 0)
+        if (fifo_out(&fifo1, xname, &xval) == 0)    // dequeue button push/command in emulator Halt state
           printf("zero return from fifo_out\n"); // pop item out of queue
         pthread_mutex_unlock(&fifo_mutex);
 
@@ -980,66 +980,74 @@ int main(int argc, char **argv) /********** main ************************** */
 
          switch (button_code)
          {
-         case 0:
+
+         case 0:  // no button - typed input command
            // printf("Display Update\n");
            break;
-         case 1:
+
+         case 1:    // START button 
            printf("Start button pushed in Halt mode %d\n", xval);
 
-           // switch on sval - the START button state
-          //  switch (xval)
-          //  {
-          //  case 0:
-          //    break;
-          //  case 1:
-          //    break;
-          //  case 2:
-          //    break;
-          //  default:
-          //    printf("invalid STRT button State %d\n", xval);
-          //  }
+           // switch on sval - START button pushed. Switch on state of MA/SI/RUN.
+           switch (xval)
+           {
 
-           //  restore/set up 316 registers in the simulator
-           //  Note: the registers may have been changed via the front panel buttons
-           //        the register values may have changed since the last time-driven output
-           ST = 3; // be sure to turn on START + RUN LEDs
-           // halt_state_registers.P = from_frontpanel_firmware.P; // temporary ???
-           h316_restore(&halt_state_registers);  // sets registers in frontpanelh316
-           put_registers(&halt_state_registers); // sets registers in simh h316
+           case 0: // RUN mode - start/stop program execution (toggle)
+                   //  restore/set up 316 registers in the simulator
+             //  Note: the registers may have been changed via the front panel buttons
+             //        the register values may have changed since the last time-driven output
+             ST = 3; // be sure to turn on START + RUN LEDs
+             // halt_state_registers.P = from_frontpanel_firmware.P; // temporary ???
+             h316_restore(&halt_state_registers);  // sets registers in frontpanelh316
+             put_registers(&halt_state_registers); // sets registers in simh h316
 
-           if (sim_panel_exec_start(panel))
-           { // start execution w/o reset
-             // if (sim_panel_exec_start(panel)) // OLD: start execution w/ reset
-             printf("error return from sim_panel_exec_start\n");
-             goto Done;
+             if (sim_panel_exec_start(panel))
+             { // start execution w/o reset
+               // if (sim_panel_exec_start(panel)) // OLD: start execution w/ reset
+               printf("error return from sim_panel_exec_start\n");
+               goto Done;
+             }
+             break;
+
+           case 1: // MA mode (memory access) 
+             break;
+
+           case 2: // SI mode (single instruction) 
+             printf("SI button pushed in Halt mode\n");
+             ST = 4; // turn on  SI LED
+             //  halt_state_registers.P = from_frontpanel_firmware.P; // temporary
+             get_registers_from_simh(&halt_state_registers);
+             h316_restore(&halt_state_registers); // sets registers in frontpanelh316
+             // BUG: what if registers have been modified via pushbuttons since last halt?
+             // put_registers(&halt_state_registers); // sets registers in simh h316
+             if (sim_panel_exec_step(panel))
+               printf("Step Error\n");
+             // get registers from simh/h316 / send to front panel
+             get_registers_from_simh(&halt_state_registers); // get regs
+             h316_restore(&halt_state_registers);            // sets registers in frontpanelh316
+             send_json_regs();
+             break;
+           default:
+             printf("invalid STRT button State %d\n", xval);
            }
 
            break;
-         case 2:
+
+         case 2:    // RUN button pushed (should be dead code - processed in firmware)
            printf("RUN button pushed in Halt Mode\n");
            ST = 2; // turn on  RUN LED
            break;
-         case 3: // SI button pushed in halt mode - temporary - eventually just set a state for start button
-           printf("SI button pushed in Halt mode\n");
-           ST = 4; // turn on  SI LED
-           //  halt_state_registers.P = from_frontpanel_firmware.P; // temporary
-           get_registers_from_simh(&halt_state_registers);
-           h316_restore(&halt_state_registers); // sets registers in frontpanelh316
-           // BUG: what if registers have been modified via pushbuttons since last halt?
-           // put_registers(&halt_state_registers); // sets registers in simh h316
-           if (sim_panel_exec_step(panel))
-             printf("Step Error\n");
-           // get registers from simh/h316 / send to front panel
-           get_registers_from_simh(&halt_state_registers); // get regs
-           h316_restore(&halt_state_registers);            // sets registers in frontpanelh316
-           send_json_regs();                               // Event: time make sure we display the latest registers
+         case 3:  // SI button pushed (should be dead code - processed in firmware)
+         // SI button pushed in halt mode - temporary - eventually just set a state for start button
+                            // Event: time make sure we display the latest registers
            break;
-         case 4:
+         case 4:    // MA button pushed (should be dead code - processed in firmware)
            printf("MA button pushed in Halt Mode\n");
            ST = 8;                                         // turn on  MA LED
            get_registers_from_simh(&halt_state_registers); // get regs
            send_json_regs();                               // Event: time make sure we display the latest registers
            break;
+           
          default:
            // - check for operator command
            switch (process_operator_cmd(button_code, sizeof(cmd), cmd))
@@ -1079,7 +1087,7 @@ int main(int argc, char **argv) /********** main ************************** */
         // printf("bottom wait run_state = %d\n", run_state); // take action when button is pushed
         pthread_cond_wait(&fifo_wait, &fifo_mutex);        // wait for signal
       }
-      fifo_out(&fifo1, xname, &xval); // pull one event out of fifo
+      fifo_out(&fifo1, xname, &xval); // dequeue one button push or command in emulator Run state
       pthread_mutex_unlock(&fifo_mutex);
 
       run_state = sim_panel_get_state(panel); // in case the state changed
@@ -1122,31 +1130,13 @@ int main(int argc, char **argv) /********** main ************************** */
   
   } // end "forever loop"
 
+//
+// exit main program
+//
 Done:
   DisplayRegisters(panel, 0, 1);
   sim_panel_destroy(panel); /* stop the h316 simulator */
   
   /* Get rid of pseudo config file created earlier */
   (void)remove(sim_config);
-}
-//
-// suspected Dead Code
-//
-void super_get_input_event()
-{
-  // process operator command in Halt state
-  char xname[16];
-  int xval; // dummy parms
-            // wait for event queue
-            // input event sets main_state = 2
-            // wait until event is available
-  pthread_mutex_lock(&fifo_mutex);
-
-  while (fifo_query(&fifo1) == 0)
-  {
-    // take action when button is pushed
-    pthread_cond_wait(&fifo_wait, &fifo_mutex); // wait for signal
-  }
-  fifo_out(&fifo1, xname, &xval);
-  pthread_mutex_unlock(&fifo_mutex);
 }
